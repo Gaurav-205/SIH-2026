@@ -1,63 +1,81 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useWeatherStore } from "./store/useWeatherStore";
-import Layout from "./components/layout/Layout";
+/**
+ * Routes and user flow:
+ *   /            landing          ─► /signup ─► /welcome (onboarding) ─► /app
+ *   /login       returning users  ─────────────────────────────────────► /app
+ *   /app/*       signed-in workspace (Overview, Stations, Forecast, Models, Alerts, Verification, Settings)
+ */
+import { lazy, Suspense } from "react";
+import { createBrowserRouter, createHashRouter, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
+import { RedirectIfSignedIn, RequireAuth, RequireOnboarded, SessionRefresh, SignOut, ThemeSync } from "./auth/guards";
+import { Spinner } from "./components/ui";
+import Landing from "./pages/public/Landing";
+import NotFound, { RouteError } from "./pages/NotFound";
+
+const Login = lazy(() => import("./pages/public/Login"));
+const Signup = lazy(() => import("./pages/public/Signup"));
+const Welcome = lazy(() => import("./pages/Welcome"));
+const AppShell = lazy(() => import("./pages/app/AppShell"));
+const Overview = lazy(() => import("./pages/app/Overview"));
+const Stations = lazy(() => import("./pages/app/Stations"));
+const Forecast = lazy(() => import("./pages/app/Forecast"));
+const Models = lazy(() => import("./pages/app/Models"));
+const Alerts = lazy(() => import("./pages/app/Alerts"));
+const Verification = lazy(() => import("./pages/app/Verification"));
+const Settings = lazy(() => import("./pages/app/Settings"));
+
+function Root() {
+  return (
+    <>
+      <ThemeSync />
+      <SessionRefresh />
+      <Suspense fallback={<Spinner />}>
+        <Outlet />
+      </Suspense>
+      <ScrollRestoration />
+    </>
+  );
+}
+
+const page = (el: React.ReactNode) => <Suspense fallback={<Spinner label="Loading page" />}>{el}</Suspense>;
+
+const routes = [
+  {
+    element: <Root />,
+    errorElement: <RouteError />,
+    children: [
+      { path: "/", element: <Landing /> },
+      { path: "/login", element: <RedirectIfSignedIn><Login /></RedirectIfSignedIn> },
+      { path: "/signup", element: <RedirectIfSignedIn><Signup /></RedirectIfSignedIn> },
+      { path: "/logout", element: <SignOut /> },
+      { path: "/welcome", element: <RequireAuth><Welcome /></RequireAuth> },
+      {
+        path: "/app",
+        element: (
+          <RequireAuth>
+            <RequireOnboarded>
+              <AppShell />
+            </RequireOnboarded>
+          </RequireAuth>
+        ),
+        errorElement: <RouteError />,
+        children: [
+          { index: true, element: page(<Overview />) },
+          { path: "stations", element: page(<Stations />) },
+          { path: "forecast", element: page(<Forecast />) },
+          { path: "models", element: page(<Models />) },
+          { path: "alerts", element: page(<Alerts />) },
+          { path: "verification", element: page(<Verification />) },
+          { path: "settings", element: page(<Settings />) },
+        ],
+      },
+      { path: "*", element: <NotFound /> },
+    ],
+  },
+];
+
+// Single-file builds (offline demo) use hash routing; normal builds use clean URLs.
+const router = import.meta.env.MODE === "single" ? createHashRouter(routes) : createBrowserRouter(routes);
 
 export default function App() {
-  const { setForecast, selectStation, selectedStationId } = useWeatherStore();
-  const leadDay = useWeatherStore(s => s.leadDay);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["forecast", "pune", leadDay],
-    queryFn: async () => {
-      const res = await fetch(`http://localhost:8000/api/v1/regions/pune/forecast?lead_day=${leadDay}`);
-      if (!res.ok) throw new Error("Failed to fetch forecast");
-      return res.json();
-    }
-  });
-
-  const { data: scorecardData } = useQuery({
-    queryKey: ["scorecard"],
-    queryFn: async () => {
-      const res = await fetch(`http://localhost:8000/api/v1/scorecard`);
-      if (!res.ok) throw new Error("Failed to fetch scorecard");
-      return res.json();
-    }
-  });
-
-  useEffect(() => {
-    if (data) {
-      setForecast(data);
-      if (!selectedStationId && data.stations.length > 0) {
-        selectStation(data.stations[0].id);
-      }
-    }
-    if (scorecardData) {
-      useWeatherStore.getState().setScorecard(scorecardData);
-    }
-  }, [data, scorecardData, setForecast, selectStation, selectedStationId]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-obsidian text-slate-400">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-monsoon-cyan border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm">Loading Forecast Data...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-obsidian text-crimson-hazard">
-        <div className="panel p-6 text-center space-y-2 border-crimson-hazard/30 bg-crimson-hazard/10">
-          <h2 className="font-bold text-lg">Failed to load forecast</h2>
-          <p className="text-sm text-slate-400">Ensure the backend API is running on localhost:8000</p>
-        </div>
-      </div>
-    );
-  }
-
-  return <Layout />;
+  return <RouterProvider router={router} />;
 }

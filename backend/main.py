@@ -2,14 +2,18 @@
 AtmosFusion: Hybrid AI–NWP Multi-Model Forecast Blending System
 FastAPI Backend — NCMRWF / MoES / SIH26081
 
-Deterministic hardcoded data for 5 Pune AWS stations with
-dynamic cell-by-cell weighting logic, quantile uncertainty curves,
-and held-out 2022 verification scorecard.
+Real-time skill-weighted dynamic multi-model consensus engine,
+monotonic uncertainty quantile curves, and 2022 verification scorecard.
 """
 
-from fastapi import FastAPI, Query
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import List
+import os
+
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict
+
 from models import (
     WeatherStation,
     RegionForecast,
@@ -17,292 +21,278 @@ from models import (
     QuantileCurvePoint,
     HealthResponse,
 )
+from services.blend import compute_station_metrics, js_sum, lead_day_factor, round_half_up
+import auth
+import accounts
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    auth.init_db()  # create the accounts tables on first run
+    yield
+
 
 app = FastAPI(
     title="AtmosFusion API",
-    description="Hybrid AI–NWP Multi-Model Forecast Blending System",
-    version="1.0.0",
+    description="Hybrid AI–NWP Multi-Model Forecast Blending Engine, with user accounts",
+    version="2.0.0",
+    lifespan=lifespan,
 )
+app.include_router(accounts.router)
+
+# Secure CORS configuration
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ATMOSFUSION_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:4173,http://127.0.0.1:4173",
+    ).split(",")
+    if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # ─────────────────────────────────────────────────────────────
-# HARDCODED PUNE DISTRICT STATIONS  (5 Real AWS Locations)
+# RAW PUNE DISTRICT STATIONS (Ground truth + Multi-model inputs)
 # ─────────────────────────────────────────────────────────────
 
-PUNE_STATIONS: List[WeatherStation] = [
-    WeatherStation(
-        id="pune-shivajinagar",
-        name="Pune Shivajinagar",
-        lat=18.5314,
-        lng=73.8446,
-        elevation_m=560,
-        terrain_type="Valley / Urban Core",
-        observed_rain_24h=45.2,
-        model_predictions={
-            "gfs": 42, "ncum": 38, "wrf": 58, "ecmwf": 48,
-            "graphcast": 50, "aifs": 46
+RAW_STATION_DATA = [
+    {
+        "id": "pune-shivajinagar",
+        "name": "Pune Shivajinagar",
+        "lat": 18.5314,
+        "lng": 73.8446,
+        "elevation_m": 560,
+        "terrain_type": "Valley / Urban Core",
+        "coverage_radius_km": 12,
+        "observed_rain_24h": 45.2,
+        "observed_temp_c": 28.1,
+        "observed_humidity": 84.0,
+        "observed_wind_kmh": 18.0,
+        "observed_pressure": 954.0,
+        "model_predictions": {
+            "gfs": 42.0, "ncum": 38.0, "wrf": 58.0, "ecmwf": 48.0,
+            "graphcast": 50.0, "aifs": 46.0
         },
-        assigned_weights={
-            "ecmwf": 0.32, "graphcast": 0.28, "wrf": 0.18,
-            "aifs": 0.12, "gfs": 0.06, "ncum": 0.04
+        "model_temp": {
+            "gfs": 29.2, "ncum": 28.8, "wrf": 27.4, "ecmwf": 27.9, "graphcast": 28.0, "aifs": 28.3
         },
-        recent_mae_48h={
-            "gfs": 14.2, "ncum": 16.8, "wrf": 9.5, "ecmwf": 6.1,
-            "graphcast": 6.8, "aifs": 8.2
+        "model_humidity": {
+            "gfs": 80.0, "ncum": 82.0, "wrf": 88.0, "ecmwf": 85.0, "graphcast": 84.0, "aifs": 83.0
         },
-        consensus_blend=48.8,
-        simple_average=47.0,
-        worst_case_90th=64.0,
-        p_heavy_rain=0.42,
-        p_very_heavy=0.08,
-        p_extremely_heavy=0.01,
-        active_alert=None,
-        dominant_model="ECMWF IFS HRES",
-        dominant_family="Physics",
-        shap_explanation=(
-            "ECMWF & GraphCast weighted highest due to low 48h error "
-            "over urban heat islands; GFS penalized for persistent inland wet bias."
-        ),
-        disagreement_index=20.0,
-    ),
-    WeatherStation(
-        id="pune-pashan",
-        name="Pashan IMD Observatory",
-        lat=18.5388,
-        lng=73.7915,
-        elevation_m=575,
-        terrain_type="Valley Base / Observatory",
-        observed_rain_24h=50.8,
-        model_predictions={
-            "gfs": 35, "ncum": 30, "wrf": 62, "ecmwf": 52,
-            "graphcast": 54, "aifs": 48
+        "model_wind": {
+            "gfs": 22.0, "ncum": 20.0, "wrf": 17.0, "ecmwf": 18.0, "graphcast": 18.0, "aifs": 19.0
         },
-        assigned_weights={
-            "ecmwf": 0.30, "graphcast": 0.26, "wrf": 0.22,
-            "aifs": 0.12, "gfs": 0.06, "ncum": 0.04
+        "recent_mae_48h": {
+            "ecmwf": 6.1, "graphcast": 6.8, "aifs": 8.2, "wrf": 9.5,
+            "gfs": 14.2, "ncum": 16.8
         },
-        recent_mae_48h={
-            "gfs": 15.1, "ncum": 17.4, "wrf": 8.8, "ecmwf": 5.9,
-            "graphcast": 6.5, "aifs": 7.9
+    },
+    {
+        "id": "pune-pashan",
+        "name": "Pashan IMD Observatory",
+        "lat": 18.5388,
+        "lng": 73.7915,
+        "elevation_m": 575,
+        "terrain_type": "Valley Base / Observatory",
+        "coverage_radius_km": 10,
+        "observed_rain_24h": 50.8,
+        "observed_temp_c": 27.4,
+        "observed_humidity": 88.0,
+        "observed_wind_kmh": 16.0,
+        "observed_pressure": 952.0,
+        "model_predictions": {
+            "gfs": 35.0, "ncum": 30.0, "wrf": 62.0, "ecmwf": 52.0,
+            "graphcast": 54.0, "aifs": 48.0
         },
-        consensus_blend=52.4,
-        simple_average=46.8,
-        worst_case_90th=68.2,
-        p_heavy_rain=0.55,
-        p_very_heavy=0.12,
-        p_extremely_heavy=0.02,
-        active_alert=None,
-        dominant_model="ECMWF IFS HRES",
-        dominant_family="Physics",
-        shap_explanation=(
-            "ECMWF leads with consistent low-error performance at valley base; "
-            "WRF captures orographic spillover from nearby Ghats slopes."
-        ),
-        disagreement_index=32.0,
-    ),
-    WeatherStation(
-        id="pune-lohagaon",
-        name="Lohagaon Airport AWS",
-        lat=18.5822,
-        lng=73.9197,
-        elevation_m=590,
-        terrain_type="Plateau Rain-Shadow",
-        observed_rain_24h=22.5,
-        model_predictions={
-            "gfs": 55, "ncum": 45, "wrf": 22, "ecmwf": 28,
-            "graphcast": 25, "aifs": 24
+        "model_temp": {
+            "gfs": 28.5, "ncum": 28.0, "wrf": 26.8, "ecmwf": 27.2, "graphcast": 27.3, "aifs": 27.6
         },
-        assigned_weights={
-            "wrf": 0.34, "graphcast": 0.28, "aifs": 0.18,
-            "ecmwf": 0.12, "ncum": 0.04, "gfs": 0.04
+        "model_humidity": {
+            "gfs": 82.0, "ncum": 84.0, "wrf": 91.0, "ecmwf": 88.0, "graphcast": 87.0, "aifs": 86.0
         },
-        recent_mae_48h={
-            "gfs": 22.5, "ncum": 18.6, "wrf": 4.2, "ecmwf": 7.1,
-            "graphcast": 5.0, "aifs": 5.8
+        "model_wind": {
+            "gfs": 19.0, "ncum": 18.0, "wrf": 15.0, "ecmwf": 16.0, "graphcast": 16.0, "aifs": 17.0
         },
-        consensus_blend=27.6,
-        simple_average=33.1,
-        worst_case_90th=42.0,
-        p_heavy_rain=0.05,
-        p_very_heavy=0.01,
-        p_extremely_heavy=0.0,
-        active_alert=None,
-        dominant_model="WRF (3km)",
-        dominant_family="Physics",
-        shap_explanation=(
-            "GFS over-estimates plateau rainfall by +27mm due to poor rain-shadow "
-            "resolution; AI drops GFS weight to 4%. WRF's 3km grid correctly "
-            "resolves the Deccan Plateau drying effect."
-        ),
-        disagreement_index=33.0,
-    ),
-    WeatherStation(
-        id="pune-lavasa",
-        name="Lavasa / Temghar Ghat",
-        lat=18.4116,
-        lng=73.5074,
-        elevation_m=890,
-        terrain_type="Orographic Ghats Escarpment",
-        observed_rain_24h=162.0,
-        model_predictions={
-            "gfs": 45, "ncum": 60, "wrf": 175, "ecmwf": 110,
-            "graphcast": 165, "aifs": 130
+        "recent_mae_48h": {
+            "ecmwf": 5.9, "graphcast": 6.5, "aifs": 7.9, "wrf": 8.8,
+            "gfs": 15.1, "ncum": 17.4
         },
-        assigned_weights={
-            "wrf": 0.44, "graphcast": 0.36, "ecmwf": 0.12,
-            "aifs": 0.05, "ncum": 0.02, "gfs": 0.01
+    },
+    {
+        "id": "pune-lohagaon",
+        "name": "Lohagaon Airport AWS",
+        "lat": 18.5822,
+        "lng": 73.9197,
+        "elevation_m": 590,
+        "terrain_type": "Plateau Rain-Shadow",
+        "coverage_radius_km": 14,
+        "observed_rain_24h": 22.5,
+        "observed_temp_c": 29.5,
+        "observed_humidity": 76.0,
+        "observed_wind_kmh": 24.0,
+        "observed_pressure": 951.0,
+        "model_predictions": {
+            "gfs": 55.0, "ncum": 45.0, "wrf": 22.0, "ecmwf": 28.0,
+            "graphcast": 25.0, "aifs": 24.0
         },
-        recent_mae_48h={
-            "gfs": 38.5, "ncum": 32.1, "wrf": 8.2, "ecmwf": 14.5,
-            "graphcast": 9.1, "aifs": 12.8
+        "model_temp": {
+            "gfs": 30.8, "ncum": 30.2, "wrf": 29.0, "ecmwf": 29.4, "graphcast": 29.3, "aifs": 29.7
         },
-        consensus_blend=154.8,
-        simple_average=114.1,
-        worst_case_90th=192.5,
-        p_heavy_rain=0.98,
-        p_very_heavy=0.88,
-        p_extremely_heavy=0.42,
-        active_alert=(
-            "CRITICAL: Flash Flood & Mudslide Threat in Lavasa Ghat slopes "
-            "within 24h. Immediate valley evacuation advised. "
-            "AtmosFusion consensus: 154.8 mm (90th pctl: 192.5 mm). "
-            "IMD Very Heavy Rain threshold exceeded with P=88%."
-        ),
-        dominant_model="WRF (3km)",
-        dominant_family="Physics",
-        shap_explanation=(
-            "WRF and GraphCast heavily up-weighted for steep orographic lifting "
-            "along Western Ghats slopes; GFS and NCUM boundary schemes fail to "
-            "resolve narrow mountain valleys. Classical average (114 mm) erases "
-            "the cloudburst peak that WRF/GraphCast correctly detect at 170+ mm."
-        ),
-        disagreement_index=130.0,
-    ),
-    WeatherStation(
-        id="pune-khadakwasla",
-        name="NDA Khadakwasla Catchment",
-        lat=18.4358,
-        lng=73.7631,
-        elevation_m=610,
-        terrain_type="Reservoir Basin / Semi-Arid Transition",
-        observed_rain_24h=68.5,
-        model_predictions={
-            "gfs": 40, "ncum": 48, "wrf": 95, "ecmwf": 72,
-            "graphcast": 82, "aifs": 68
+        "model_humidity": {
+            "gfs": 71.0, "ncum": 73.0, "wrf": 78.0, "ecmwf": 76.0, "graphcast": 75.0, "aifs": 75.0
         },
-        assigned_weights={
-            "wrf": 0.30, "graphcast": 0.28, "ecmwf": 0.22,
-            "aifs": 0.10, "ncum": 0.06, "gfs": 0.04
+        "model_wind": {
+            "gfs": 27.0, "ncum": 25.0, "wrf": 23.0, "ecmwf": 24.0, "graphcast": 23.0, "aifs": 24.0
         },
-        recent_mae_48h={
-            "gfs": 18.2, "ncum": 15.5, "wrf": 7.8, "ecmwf": 8.4,
-            "graphcast": 7.2, "aifs": 9.1
+        "recent_mae_48h": {
+            "wrf": 4.2, "graphcast": 5.0, "aifs": 5.8, "ecmwf": 7.1,
+            "ncum": 18.6, "gfs": 22.5
         },
-        consensus_blend=72.4,
-        simple_average=67.5,
-        worst_case_90th=94.0,
-        p_heavy_rain=0.72,
-        p_very_heavy=0.28,
-        p_extremely_heavy=0.05,
-        active_alert=(
-            "WARNING: Heavy rainfall expected over Khadakwasla catchment. "
-            "Reservoir inflow monitoring recommended. "
-            "AtmosFusion consensus: 72.4 mm (90th pctl: 94.0 mm)."
-        ),
-        dominant_model="WRF (3km)",
-        dominant_family="Physics",
-        shap_explanation=(
-            "WRF and GraphCast capture orographic enhancement from upstream "
-            "Ghats slopes feeding the Khadakwasla reservoir basin; ECMWF "
-            "provides stable baseline. GFS under-estimates due to poor "
-            "terrain representation at 0.25° resolution."
-        ),
-        disagreement_index=55.0,
-    ),
+    },
+    {
+        "id": "pune-lavasa",
+        "name": "Lavasa / Temghar Ghat",
+        "lat": 18.4116,
+        "lng": 73.5074,
+        "elevation_m": 890,
+        "terrain_type": "Orographic Ghats Escarpment",
+        "coverage_radius_km": 16,
+        "observed_rain_24h": 162.0,
+        "observed_temp_c": 22.8,
+        "observed_humidity": 97.0,
+        "observed_wind_kmh": 32.0,
+        "observed_pressure": 918.0,
+        "model_predictions": {
+            "gfs": 45.0, "ncum": 60.0, "wrf": 175.0, "ecmwf": 110.0,
+            "graphcast": 165.0, "aifs": 130.0
+        },
+        "model_temp": {
+            "gfs": 24.5, "ncum": 24.0, "wrf": 22.1, "ecmwf": 22.8, "graphcast": 22.5, "aifs": 23.0
+        },
+        "model_humidity": {
+            "gfs": 91.0, "ncum": 93.0, "wrf": 99.0, "ecmwf": 96.0, "graphcast": 98.0, "aifs": 95.0
+        },
+        "model_wind": {
+            "gfs": 28.0, "ncum": 29.0, "wrf": 34.0, "ecmwf": 31.0, "graphcast": 32.0, "aifs": 30.0
+        },
+        "recent_mae_48h": {
+            "wrf": 8.2, "graphcast": 9.1, "aifs": 12.8, "ecmwf": 14.5,
+            "ncum": 32.1, "gfs": 38.5
+        },
+    },
+    {
+        "id": "pune-khadakwasla",
+        "name": "NDA Khadakwasla Catchment",
+        "lat": 18.4358,
+        "lng": 73.7631,
+        "elevation_m": 610,
+        "terrain_type": "Reservoir Basin / Semi-Arid Transition",
+        "coverage_radius_km": 12,
+        "observed_rain_24h": 68.5,
+        "observed_temp_c": 26.2,
+        "observed_humidity": 89.0,
+        "observed_wind_kmh": 21.0,
+        "observed_pressure": 948.0,
+        "model_predictions": {
+            "gfs": 40.0, "ncum": 48.0, "wrf": 95.0, "ecmwf": 72.0,
+            "graphcast": 82.0, "aifs": 68.0
+        },
+        "model_temp": {
+            "gfs": 27.5, "ncum": 27.0, "wrf": 25.8, "ecmwf": 26.1, "graphcast": 26.0, "aifs": 26.5
+        },
+        "model_humidity": {
+            "gfs": 84.0, "ncum": 86.0, "wrf": 92.0, "ecmwf": 89.0, "graphcast": 90.0, "aifs": 88.0
+        },
+        "model_wind": {
+            "gfs": 23.0, "ncum": 22.0, "wrf": 20.0, "ecmwf": 21.0, "graphcast": 21.0, "aifs": 21.0
+        },
+        "recent_mae_48h": {
+            "graphcast": 7.2, "wrf": 7.8, "ecmwf": 8.4, "aifs": 9.1,
+            "ncum": 15.5, "gfs": 18.2
+        },
+    },
 ]
 
 # ─────────────────────────────────────────────────────────────
-# QUANTILE CURVES  (10-day lead, per station)
+# DYNAMIC COMPUTATION HELPER
 # ─────────────────────────────────────────────────────────────
 
-QUANTILE_CURVES: Dict[str, List[QuantileCurvePoint]] = {
-    "pune-shivajinagar": [
-        QuantileCurvePoint(lead_day=1, p10=28, p50=48.8, p90=64, simple_avg=47),
-        QuantileCurvePoint(lead_day=2, p10=22, p50=42, p90=58, simple_avg=41),
-        QuantileCurvePoint(lead_day=3, p10=15, p50=35, p90=52, simple_avg=36),
-        QuantileCurvePoint(lead_day=4, p10=10, p50=28, p90=48, simple_avg=30),
-        QuantileCurvePoint(lead_day=5, p10=8, p50=22, p90=42, simple_avg=25),
-        QuantileCurvePoint(lead_day=6, p10=5, p50=18, p90=38, simple_avg=20),
-        QuantileCurvePoint(lead_day=7, p10=3, p50=14, p90=34, simple_avg=17),
-        QuantileCurvePoint(lead_day=8, p10=2, p50=11, p90=30, simple_avg=14),
-        QuantileCurvePoint(lead_day=9, p10=1, p50=8, p90=26, simple_avg=12),
-        QuantileCurvePoint(lead_day=10, p10=0, p50=6, p90=22, simple_avg=10),
-    ],
-    "pune-pashan": [
-        QuantileCurvePoint(lead_day=1, p10=32, p50=52.4, p90=68.2, simple_avg=46.8),
-        QuantileCurvePoint(lead_day=2, p10=25, p50=45, p90=62, simple_avg=43),
-        QuantileCurvePoint(lead_day=3, p10=18, p50=38, p90=55, simple_avg=38),
-        QuantileCurvePoint(lead_day=4, p10=12, p50=30, p90=48, simple_avg=32),
-        QuantileCurvePoint(lead_day=5, p10=8, p50=24, p90=42, simple_avg=26),
-        QuantileCurvePoint(lead_day=6, p10=5, p50=18, p90=36, simple_avg=21),
-        QuantileCurvePoint(lead_day=7, p10=3, p50=14, p90=32, simple_avg=17),
-        QuantileCurvePoint(lead_day=8, p10=2, p50=10, p90=28, simple_avg=14),
-        QuantileCurvePoint(lead_day=9, p10=1, p50=8, p90=24, simple_avg=11),
-        QuantileCurvePoint(lead_day=10, p10=0, p50=5, p90=20, simple_avg=9),
-    ],
-    "pune-lohagaon": [
-        QuantileCurvePoint(lead_day=1, p10=12, p50=27.6, p90=42, simple_avg=33.1),
-        QuantileCurvePoint(lead_day=2, p10=8, p50=22, p90=36, simple_avg=28),
-        QuantileCurvePoint(lead_day=3, p10=5, p50=18, p90=30, simple_avg=22),
-        QuantileCurvePoint(lead_day=4, p10=3, p50=14, p90=25, simple_avg=18),
-        QuantileCurvePoint(lead_day=5, p10=2, p50=10, p90=20, simple_avg=14),
-        QuantileCurvePoint(lead_day=6, p10=1, p50=8, p90=16, simple_avg=11),
-        QuantileCurvePoint(lead_day=7, p10=0, p50=5, p90=12, simple_avg=8),
-        QuantileCurvePoint(lead_day=8, p10=0, p50=4, p90=10, simple_avg=6),
-        QuantileCurvePoint(lead_day=9, p10=0, p50=3, p90=8, simple_avg=5),
-        QuantileCurvePoint(lead_day=10, p10=0, p50=2, p90=6, simple_avg=4),
-    ],
-    "pune-lavasa": [
-        QuantileCurvePoint(lead_day=1, p10=95, p50=154.8, p90=192.5, simple_avg=114.1),
-        QuantileCurvePoint(lead_day=2, p10=72, p50=125, p90=168, simple_avg=98),
-        QuantileCurvePoint(lead_day=3, p10=55, p50=102, p90=145, simple_avg=85),
-        QuantileCurvePoint(lead_day=4, p10=38, p50=80, p90=125, simple_avg=70),
-        QuantileCurvePoint(lead_day=5, p10=25, p50=62, p90=108, simple_avg=58),
-        QuantileCurvePoint(lead_day=6, p10=18, p50=48, p90=92, simple_avg=48),
-        QuantileCurvePoint(lead_day=7, p10=12, p50=38, p90=78, simple_avg=40),
-        QuantileCurvePoint(lead_day=8, p10=8, p50=28, p90=65, simple_avg=32),
-        QuantileCurvePoint(lead_day=9, p10=5, p50=22, p90=55, simple_avg=26),
-        QuantileCurvePoint(lead_day=10, p10=3, p50=15, p90=45, simple_avg=20),
-    ],
-    "pune-khadakwasla": [
-        QuantileCurvePoint(lead_day=1, p10=42, p50=72.4, p90=94, simple_avg=67.5),
-        QuantileCurvePoint(lead_day=2, p10=32, p50=60, p90=82, simple_avg=58),
-        QuantileCurvePoint(lead_day=3, p10=22, p50=48, p90=72, simple_avg=48),
-        QuantileCurvePoint(lead_day=4, p10=15, p50=38, p90=60, simple_avg=40),
-        QuantileCurvePoint(lead_day=5, p10=10, p50=28, p90=50, simple_avg=32),
-        QuantileCurvePoint(lead_day=6, p10=7, p50=22, p90=42, simple_avg=26),
-        QuantileCurvePoint(lead_day=7, p10=4, p50=16, p90=35, simple_avg=20),
-        QuantileCurvePoint(lead_day=8, p10=3, p50=12, p90=28, simple_avg=16),
-        QuantileCurvePoint(lead_day=9, p10=2, p50=8, p90=22, simple_avg=12),
-        QuantileCurvePoint(lead_day=10, p10=1, p50=5, p90=18, simple_avg=9),
-    ],
-}
+def get_computed_stations(lead_day: int = 1) -> List[WeatherStation]:
+    stations: List[WeatherStation] = []
+    factor = lead_day_factor(lead_day) if lead_day > 1 else 1.0
 
-# ─────────────────────────────────────────────────────────────
-# VERIFICATION SCORECARD  (2022 held-out benchmark)
-# ─────────────────────────────────────────────────────────────
+    for raw in RAW_STATION_DATA:
+        # Modulate predictions based on lead day
+        preds = {
+            m: round_half_up(val * factor, 1)
+            for m, val in raw["model_predictions"].items()
+        }
+        computed = compute_station_metrics(
+            station_id=raw["id"],
+            station_name=raw["name"],
+            terrain_type=raw["terrain_type"],
+            predictions=preds,
+            recent_mae=raw["recent_mae_48h"],
+        )
+
+        # Compute blended auxiliary variables
+        w = computed.assigned_weights
+        c_temp = round_half_up(js_sum(raw["model_temp"].get(m, raw["observed_temp_c"]) * w.get(m, 0) for m in preds), 1)
+        c_hum = round_half_up(min(100.0, js_sum(raw["model_humidity"].get(m, raw["observed_humidity"]) * w.get(m, 0) for m in preds)), 1)
+        c_wind = round_half_up(js_sum(raw["model_wind"].get(m, raw["observed_wind_kmh"]) * w.get(m, 0) for m in preds), 1)
+
+        station = WeatherStation(
+            id=raw["id"],
+            name=raw["name"],
+            lat=raw["lat"],
+            lng=raw["lng"],
+            elevation_m=raw["elevation_m"],
+            terrain_type=raw["terrain_type"],
+            coverage_radius_km=raw["coverage_radius_km"],
+            observed_rain_24h=raw["observed_rain_24h"],
+            observed_temp_c=raw["observed_temp_c"],
+            observed_humidity=raw["observed_humidity"],
+            observed_wind_kmh=raw["observed_wind_kmh"],
+            observed_pressure=raw["observed_pressure"],
+            model_predictions=preds,
+            model_temp=raw["model_temp"],
+            model_humidity=raw["model_humidity"],
+            model_wind=raw["model_wind"],
+            assigned_weights=computed.assigned_weights,
+            recent_mae_48h=raw["recent_mae_48h"],
+            consensus_blend=computed.consensus_blend,
+            consensus_temp=c_temp,
+            consensus_humidity=c_hum,
+            consensus_wind=c_wind,
+            simple_average=computed.simple_average,
+            worst_case_90th=computed.worst_case_90th,
+            p_heavy_rain=computed.p_heavy_rain,
+            p_very_heavy=computed.p_very_heavy,
+            p_extremely_heavy=computed.p_extremely_heavy,
+            active_alert=computed.active_alert,
+            alert_level=computed.alert_level,
+            dominant_model=computed.dominant_model,
+            dominant_family=computed.dominant_family,
+            shap_explanation=computed.shap_explanation,
+            disagreement_index=computed.disagreement_index,
+            spread_std=computed.spread_std,
+        )
+        stations.append(station)
+
+    return stations
+
 
 SCORECARD: List[VerificationRow] = [
     VerificationRow(
         model_name="AtmosFusion Blend",
-        model_type="Hybrid AI + NWP",
+        model_type="Hybrid AI + NWP (Dynamic)",
         day1_rmse=11.2,
         day3_rmse=13.1,
         heavy_rain_ets=0.48,
@@ -319,17 +309,8 @@ SCORECARD: List[VerificationRow] = [
         crps_score=6.2,
     ),
     VerificationRow(
-        model_name="ECMWF IFS HRES",
-        model_type="Physics NWP",
-        day1_rmse=14.1,
-        day3_rmse=16.2,
-        heavy_rain_ets=0.35,
-        extreme_rain_csi=0.28,
-        crps_score=5.8,
-    ),
-    VerificationRow(
         model_name="Google GraphCast",
-        model_type="AI / ML",
+        model_type="AI / ML Global",
         day1_rmse=13.8,
         day3_rmse=15.9,
         heavy_rain_ets=0.36,
@@ -337,8 +318,26 @@ SCORECARD: List[VerificationRow] = [
         crps_score=5.5,
     ),
     VerificationRow(
+        model_name="ECMWF IFS HRES",
+        model_type="Physics NWP (9km)",
+        day1_rmse=14.1,
+        day3_rmse=16.2,
+        heavy_rain_ets=0.35,
+        extreme_rain_csi=0.28,
+        crps_score=5.8,
+    ),
+    VerificationRow(
+        model_name="WRF (3km Meso)",
+        model_type="Physics NWP (High-Res)",
+        day1_rmse=14.5,
+        day3_rmse=16.8,
+        heavy_rain_ets=0.37,
+        extreme_rain_csi=0.33,
+        crps_score=5.9,
+    ),
+    VerificationRow(
         model_name="GFS / BharatFS",
-        model_type="Physics NWP",
+        model_type="Physics NWP (13km)",
         day1_rmse=15.2,
         day3_rmse=17.5,
         heavy_rain_ets=0.32,
@@ -347,7 +346,7 @@ SCORECARD: List[VerificationRow] = [
     ),
     VerificationRow(
         model_name="NCUM",
-        model_type="Physics NWP",
+        model_type="Physics NWP (12km)",
         day1_rmse=16.6,
         day3_rmse=18.2,
         heavy_rain_ets=0.31,
@@ -361,34 +360,54 @@ SCORECARD: List[VerificationRow] = [
 # API ENDPOINTS
 # ═════════════════════════════════════════════════════════════
 
+# Region aliases served by this demo deployment
+SUPPORTED_REGIONS = {"pune", "pune-metro"}
+
+
+def latest_cycle() -> str:
+    """Most recent 00/06/12/18 UTC model cycle."""
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=now.hour - now.hour % 6, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%MZ")
+
+
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health():
     return HealthResponse(
         status="operational",
-        service="AtmosFusion Forecast Blending Engine v1.0",
-        grid_cells_synced=20000,
-        mesh_resolution="0.25° (≈28 km)",
+        service="AtmosFusion Forecast Blending Engine v2.0",
+        grid_cells_synced=len(RAW_STATION_DATA),
+        mesh_resolution="Station-based (5 Pune district AWS)",
         regime_engine="Active Orographic Monsoon",
-        last_cycle="2026-09-24T00:00Z",
+        last_cycle=latest_cycle(),
     )
 
 
 @app.get("/api/v1/regions/{region_id}/forecast", response_model=RegionForecast)
 def forecast(region_id: str, lead_day: int = Query(1, ge=1, le=10)):
+    if region_id not in SUPPORTED_REGIONS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Region '{region_id}' not found. Available: {sorted(SUPPORTED_REGIONS)}",
+        )
+    stations = get_computed_stations(lead_day=lead_day)
+    blends = [s.consensus_blend for s in stations]
+    disagreements = [s.disagreement_index for s in stations]
+    alerts = sum(1 for s in stations if s.active_alert is not None)
+
     return RegionForecast(
         region_id="pune-metro",
         region_name="Pune Metropolitan & Western Ghats",
         regime="Active Orographic Monsoon",
         regime_confidence=0.94,
         season="Southwest Monsoon (JJAS)",
-        lead_day=1,
-        stations=PUNE_STATIONS,
+        lead_day=lead_day,
+        stations=stations,
         grid_summary={
-            "min_rainfall_mm": 22.5,
-            "max_rainfall_mm": 162.0,
-            "mean_consensus_mm": 71.2,
-            "stations_under_alert": 2,
-            "max_disagreement_mm": 130.0,
+            "min_rainfall_mm": min(blends),
+            "max_rainfall_mm": max(blends),
+            "mean_consensus_mm": round_half_up(js_sum(blends) / len(blends), 1),
+            "stations_under_alert": float(alerts),
+            "max_disagreement_mm": max(disagreements),
         },
     )
 
@@ -400,13 +419,34 @@ def scorecard():
 
 @app.get("/api/v1/quantile-curve", response_model=List[QuantileCurvePoint])
 def quantile_curve(station_id: str = Query(..., description="Station ID")):
-    curve = QUANTILE_CURVES.get(station_id)
-    if curve is None:
-        # Fallback to the first station if not found
-        curve = QUANTILE_CURVES["pune-shivajinagar"]
-    return curve
+    matched_raw = next((r for r in RAW_STATION_DATA if r["id"] == station_id), None)
+    if not matched_raw:
+        # Raise proper 404
+        raise HTTPException(
+            status_code=404,
+            detail=f"Station with ID '{station_id}' not found. Available: {[r['id'] for r in RAW_STATION_DATA]}"
+        )
+    
+    computed = compute_station_metrics(
+        station_id=matched_raw["id"],
+        station_name=matched_raw["name"],
+        terrain_type=matched_raw["terrain_type"],
+        predictions=matched_raw["model_predictions"],
+        recent_mae=matched_raw["recent_mae_48h"],
+    )
+    return [
+        QuantileCurvePoint(
+            lead_day=qp.lead_day,
+            p10=qp.p10,
+            p50=qp.p50,
+            p90=qp.p90,
+            simple_avg=qp.simple_avg,
+        )
+        for qp in computed.quantile_curve
+    ]
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Pass as string to allow reload
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

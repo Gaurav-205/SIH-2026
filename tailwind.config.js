@@ -1,45 +1,43 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+
+// Semantic colours come from CSS variables (see src/index.css), so light/dark
+// themes switch by toggling the `dark` class on <html> — components never hard-code a theme.
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
+export default {
   darkMode: "class",
-  content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        obsidian: "#09090b", // zinc-950
-        "midnight-slate": "#18181b", // zinc-900
-        "frosted-slate": "#27272a", // zinc-800
-        "slate-border": "#3f3f46", // zinc-700
-        "monsoon-cyan": "#60a5fa", // blue-400
-        "atlantic-blue": "#3b82f6", // blue-500
-        "quantum-violet": "#818cf8", // indigo-400
-        "neural-emerald": "#34d399", // emerald-400
-        "amber-alert": "#fbbf24", // amber-400
-        "crimson-hazard": "#f87171", // red-400
+        canvas: token("canvas"),
+        surface: token("surface"),
+        subtle: token("subtle"),
+        line: token("line"),
+        fg: token("fg"),
+        muted: token("muted"),
+        accent: { DEFAULT: token("accent"), fg: token("accent-fg"), soft: token("accent-soft") },
+        ok: { DEFAULT: token("ok"), soft: token("ok-soft") },
+        warn: { DEFAULT: token("warn"), soft: token("warn-soft") },
+        danger: { DEFAULT: token("danger"), soft: token("danger-soft") },
       },
       fontFamily: {
-        sans: ["IBM Plex Sans", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
-      animation: {
-        "pulse-hazard": "pulseHazard 2s ease-in-out infinite",
-        "radar-sweep": "radarSweep 3s linear infinite",
-        "glow-cyan": "glowCyan 2s ease-in-out infinite alternate",
+      boxShadow: {
+        card: "0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06)",
+        pop: "0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08)",
       },
       keyframes: {
-        pulseHazard: {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(230, 57, 70, 0.6)" },
-          "50%": { boxShadow: "0 0 20px 10px rgba(230, 57, 70, 0.2)" },
-        },
-        radarSweep: {
-          "0%": { transform: "rotate(0deg)" },
-          "100%": { transform: "rotate(360deg)" },
-        },
-        glowCyan: {
-          "0%": { boxShadow: "0 0 5px rgba(0, 242, 254, 0.3)" },
-          "100%": { boxShadow: "0 0 20px rgba(0, 242, 254, 0.6)" },
-        },
+        "fade-in": { from: { opacity: "0", transform: "translateY(4px)" }, to: { opacity: "1", transform: "none" } },
+        pulse_ring: { "0%": { transform: "scale(1)", opacity: "0.7" }, "80%,100%": { transform: "scale(2.4)", opacity: "0" } },
+      },
+      animation: {
+        "fade-in": "fade-in 0.2s ease-out both",
+        "pulse-ring": "pulse_ring 1.8s ease-out infinite",
       },
     },
   },
   plugins: [],
-}
+};

@@ -3,8 +3,8 @@ AtmosFusion: Hybrid AI–NWP Multi-Model Forecast Blending System
 Pydantic Schema Definitions — NCMRWF / MoES / SIH26081
 """
 
-from pydantic import BaseModel
-from typing import List, Dict, Optional
+from pydantic import BaseModel, Field
+from typing import List, Dict, Literal, Optional
 
 
 class WeatherStation(BaseModel):
@@ -14,21 +14,40 @@ class WeatherStation(BaseModel):
     lng: float
     elevation_m: int
     terrain_type: str
+    coverage_radius_km: int = 12
     observed_rain_24h: float
+    observed_temp_c: float = 27.5
+    observed_humidity: float = 85.0
+    observed_wind_kmh: float = 18.0
+    observed_pressure: float = 952.0
+    
+    # Model predictions for different atmospheric variables
     model_predictions: Dict[str, float]
+    model_temp: Dict[str, float] = Field(default_factory=dict)
+    model_humidity: Dict[str, float] = Field(default_factory=dict)
+    model_wind: Dict[str, float] = Field(default_factory=dict)
+
     assigned_weights: Dict[str, float]
     recent_mae_48h: Dict[str, float]
+    
+    # Consensus blended outputs
     consensus_blend: float
+    consensus_temp: float = 27.5
+    consensus_humidity: float = 85.0
+    consensus_wind: float = 18.0
+    
     simple_average: float
     worst_case_90th: float
     p_heavy_rain: float       # P(Rain >= 64.5 mm)
     p_very_heavy: float       # P(Rain >= 115.6 mm)
     p_extremely_heavy: float  # P(Rain >= 204.5 mm)
     active_alert: Optional[str] = None
+    alert_level: Optional[Literal["Yellow", "Orange", "Red"]] = None
     dominant_model: str
-    dominant_family: str       # "Physics", "Ensemble", "AI"
+    dominant_family: str       # "Physics NWP", "AI / ML"
     shap_explanation: str
     disagreement_index: float  # max - min across models (mm)
+    spread_std: float  # weighted ensemble standard deviation σ (mm)
 
 
 class RegionForecast(BaseModel):

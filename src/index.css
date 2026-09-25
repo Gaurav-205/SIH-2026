@@ -1,210 +1,97 @@
-﻿@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
-@import "@fontsource/jetbrains-mono/600.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ──────────────────────────────────────────────────────────
-   AtmosFusion Global Animations
-   ────────────────────────────────────────────────────────── */
-
-@keyframes af-fadein {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── Design tokens (RGB triplets so Tailwind can apply opacity) ── */
+:root {
+  --canvas: 247 248 250;
+  --surface: 255 255 255;
+  --subtle: 242 244 247;
+  --line: 228 231 236;
+  --fg: 16 24 40;
+  --muted: 102 112 133;
+  --accent: 37 99 235;
+  --accent-fg: 255 255 255;
+  --accent-soft: 239 244 255;
+  --ok: 3 152 85;
+  --ok-soft: 236 253 243;
+  --warn: 220 104 3;
+  --warn-soft: 255 250 235;
+  --danger: 217 45 32;
+  --danger-soft: 254 243 242;
+  color-scheme: light;
 }
 
-@keyframes af-slidein-left {
-  from { opacity: 0; transform: translateX(-20px); }
-  to   { opacity: 1; transform: translateX(0); }
+.dark {
+  --canvas: 11 17 29;
+  --surface: 17 25 41;
+  --subtle: 24 34 54;
+  --line: 38 50 74;
+  --fg: 231 236 244;
+  --muted: 148 163 184;
+  --accent: 96 165 250;
+  --accent-fg: 11 17 29;
+  --accent-soft: 30 45 74;
+  --ok: 52 211 153;
+  --ok-soft: 16 48 44;
+  --warn: 251 191 36;
+  --warn-soft: 58 44 16;
+  --danger: 248 113 113;
+  --danger-soft: 62 24 28;
+  color-scheme: dark;
 }
 
-@keyframes af-slidein-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes af-slidein-down {
-  from { opacity: 0; transform: translateY(-12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes af-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes af-pulse-ring {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  70%  { transform: scale(2.2); opacity: 0; }
-  100% { transform: scale(1);   opacity: 0; }
-}
-
-@keyframes af-shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes af-glow-cyan {
-  0%   { box-shadow: 0 0 4px rgba(96,165,250,0.3); }
-  100% { box-shadow: 0 0 18px rgba(96,165,250,0.7); }
-}
-
-@keyframes af-bar-grow {
-  from { width: 0%; }
-}
-
-/* ──────────────────────────────────────────────────────────
-   Marker styles (rendered inside Leaflet DivIcon HTML)
-   ────────────────────────────────────────────────────────── */
-.af-pulse-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 2px solid var(--ring-color, #f87171);
-  animation: af-pulse-ring 1.8s ease-out infinite;
-  pointer-events: none;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* ──────────────────────────────────────────────────────────
-   AtmosFusion Global Reset & Base Layer
-   ────────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    @apply border-slate-border;
-    box-sizing: border-box;
-  }
-
+  html { -webkit-tap-highlight-color: transparent; }
   body {
-    @apply m-0 p-0 bg-obsidian text-slate-200 font-sans antialiased;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-canvas text-fg font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
-
-  #root {
-    @apply w-full h-screen overflow-hidden flex flex-col;
-  }
-
-  .leaflet-container {
-    @apply bg-obsidian z-0;
-    font-family: "Inter", system-ui, sans-serif;
-  }
-
-  .leaflet-tooltip {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-
-  .leaflet-control-zoom a {
-    @apply bg-midnight-slate text-slate-300 border-slate-border;
-  }
-
-  .leaflet-control-zoom a:hover {
-    @apply bg-obsidian text-monsoon-cyan;
-  }
-
-  ::-webkit-scrollbar { @apply w-1.5; }
-  ::-webkit-scrollbar-track { @apply bg-obsidian; }
-  ::-webkit-scrollbar-thumb { @apply bg-slate-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-frosted-slate; }
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: rgb(var(--accent) / 0.2); }
 }
 
-/* ──────────────────────────────────────────────────────────
-   Component Utilities
-   ────────────────────────────────────────────────────────── */
 @layer components {
-  .panel {
-    @apply bg-midnight-slate border border-slate-border rounded-xl shadow-xl;
-  }
-
-  .panel-header {
-    @apply px-3 py-2 border-b border-slate-border flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500;
-  }
-
-  .metric-value {
-    @apply font-mono text-sm tabular-nums text-slate-200;
-  }
-
-  .metric-label {
-    @apply text-[10px] uppercase tracking-wider text-slate-500 font-medium;
-  }
-
-  .badge-physics {
-    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-sm bg-atlantic-blue/10 text-atlantic-blue border border-atlantic-blue/30;
-  }
-
-  .badge-ai {
-    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-sm bg-neural-emerald/10 text-neural-emerald border border-neural-emerald/30;
-  }
-
-  .badge-ensemble {
-    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-sm bg-quantum-violet/10 text-quantum-violet border border-quantum-violet/30;
-  }
-
-  .badge-critical {
-    @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-bold rounded-sm bg-crimson-hazard/10 text-crimson-hazard border border-crimson-hazard/30;
-  }
-
-  .badge-warning {
-    @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-bold rounded-sm bg-amber-alert/10 text-amber-alert border border-amber-alert/30;
-  }
-
-  .pill-active {
-    @apply bg-monsoon-cyan/15 text-monsoon-cyan border-monsoon-cyan/40;
-    transition: all 0.2s ease;
-  }
-
-  .pill-inactive {
-    @apply bg-midnight-slate text-slate-500 border-slate-border hover:border-slate-300 hover:text-slate-100;
-    transition: all 0.2s ease;
-  }
-
-  .radar-glow {
-    animation: af-glow-cyan 2s ease-in-out infinite alternate;
-  }
-
-  .weight-bar-fill {
-    animation: af-bar-grow 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-
-  .drawer-left {
-    animation: af-slidein-left 0.5s cubic-bezier(0.16,1,0.3,1) both;
-  }
-
-  .drawer-right {
-    animation: af-slidein-right 0.5s cubic-bezier(0.16,1,0.3,1) both;
-  }
-
-  .header-anim {
-    animation: af-slidein-down 0.4s cubic-bezier(0.16,1,0.3,1) both;
-  }
-
-  .card-anim {
-    animation: af-fadein 0.5s ease both;
-  }
+  .card { @apply rounded-xl border border-line bg-surface shadow-card; }
+  .num { font-variant-numeric: tabular-nums; }
 }
 
-/* ── Dark map: CSS-invert OSM tiles only (no API key, free forever) ─────── */
-/* Only the tile layer gets inverted; markers, overlays, popups stay intact */
-.af-dark-map .leaflet-tile-pane {
-  filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(89%) saturate(120%);
+/* ── Leaflet, themed ─────────────────────────────────────────── */
+.leaflet-container { background: rgb(var(--subtle)); font-family: Inter, system-ui, sans-serif; z-index: 0; }
+.leaflet-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
+.leaflet-tooltip::before { display: none; }
+.leaflet-bar a {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--fg)) !important;
+  border-color: rgb(var(--line)) !important;
+}
+.leaflet-bar a:hover { background: rgb(var(--subtle)) !important; }
+.leaflet-control-attribution {
+  background: rgb(var(--surface) / 0.85) !important;
+  color: rgb(var(--muted)) !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution a { color: rgb(var(--accent)) !important; }
 
-/* Attribution pill — keep it readable on dark bg */
-.af-dark-map .leaflet-control-attribution {
-  background: rgba(9,9,11,0.75) !important;
-  color: #71717a !important;
-  font-size: 9px !important;
-}
-.af-dark-map .leaflet-control-attribution a {
-  color: #60a5fa !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

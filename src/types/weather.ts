@@ -40,11 +40,15 @@ export interface WeatherStation {
   p_very_heavy: number;
   p_extremely_heavy: number;
   active_alert: string | null;
+  alert_level: AlertLevel | null;
   dominant_model: string;
   dominant_family: string;
   shap_explanation: string;
-  disagreement_index: number;
+  disagreement_index: number; // max − min across models (mm)
+  spread_std: number; // weighted ensemble standard deviation σ (mm)
 }
+
+export type AlertLevel = "Yellow" | "Orange" | "Red";
 
 export interface RegionForecast {
   region_id: string;
@@ -84,16 +88,9 @@ export interface HealthResponse {
   last_cycle: string;
 }
 
-export type LayerMode = "consensus" | "trust" | "disagreement" | "risk" | "coverage";
+export const LEAD_DAYS = [1, 2, 3, 5, 7, 10];
 
-export const MODEL_COLORS: Record<string, string> = {
-  gfs: "#3A86FF",
-  ncum: "#5E60CE",
-  wrf: "#7400B8",
-  ecmwf: "#3A86FF",
-  graphcast: "#06D6A0",
-  aifs: "#06D6A0",
-};
+export type LayerMode = "consensus" | "trust" | "disagreement" | "risk" | "coverage";
 
 export const MODEL_LABELS: Record<string, string> = {
   gfs: "GFS / BharatFS",
