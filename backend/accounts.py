@@ -4,7 +4,7 @@ Account endpoints: sign up, log in, profile and preferences, password, alert ack
 
 import re
 import sqlite3
-from typing import List, Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Response, status
 from pydantic import BaseModel, Field, field_validator
@@ -78,13 +78,13 @@ class AuthResponse(BaseModel):
 
 
 class PreferencesUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
-    role: Optional[Role] = None
-    home_region: Optional[Region] = None
-    lead_day: Optional[int] = Field(default=None, ge=1, le=5)
-    alert_threshold: Optional[Threshold] = None
-    theme: Optional[Theme] = None
-    onboarded: Optional[bool] = None
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    role: Role | None = None
+    home_region: Region | None = None
+    lead_day: int | None = Field(default=None, ge=1, le=5)
+    alert_threshold: Threshold | None = None
+    theme: Theme | None = None
+    onboarded: bool | None = None
 
 
 class PasswordChange(BaseModel):
@@ -118,7 +118,7 @@ def _user_out(row: sqlite3.Row) -> UserOut:
 
 # ── Current user dependency ─────────────────────────────────
 
-def current_user(authorization: Optional[str] = Header(default=None)) -> sqlite3.Row:
+def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Row:
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not signed in or session expired",
@@ -148,7 +148,7 @@ def signup(body: SignupRequest):
             )
             row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
     except sqlite3.IntegrityError:
-        raise HTTPException(status_code=409, detail="An account with this email already exists")
+        raise HTTPException(status_code=409, detail="An account with this email already exists") from None
     return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
 
 
@@ -212,7 +212,7 @@ def delete_me(body: PasswordConfirm, user: sqlite3.Row = Depends(current_user)):
 ALERT_ID_PATTERN = r"^[A-Za-z0-9_.:\-]+$"
 
 
-@router.get("/alerts/acks", response_model=List[AlertAck])
+@router.get("/alerts/acks", response_model=list[AlertAck])
 def list_acks(user: sqlite3.Row = Depends(current_user)):
     with auth.db() as conn:
         rows = conn.execute(

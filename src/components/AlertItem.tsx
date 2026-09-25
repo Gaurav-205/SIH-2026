@@ -1,4 +1,4 @@
-import { Check, MapPin, RadioTower, Undo2 } from "lucide-react";
+import { Check, MapPin, Undo2 } from "lucide-react";
 import type { AppAlert } from "@/data/alerts";
 import { Badge, Button } from "./ui";
 import { cx } from "@/lib/cx";
@@ -19,11 +19,10 @@ export default function AlertItem({
   compact?: boolean;
 }) {
   const acked = !!ackedAt;
-  const Icon = alert.source === "station" ? RadioTower : MapPin;
   return (
     <li className={cx("relative flex items-start gap-3 py-3 pl-4", acked && "opacity-60")}>
       <span className={cx("absolute bottom-3 left-0 top-3 w-1 rounded-full", BAR[alert.level])} aria-hidden="true" />
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />
+      <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium text-fg">{alert.headline}</p>
@@ -31,7 +30,7 @@ export default function AlertItem({
         </div>
         {!compact && <p className="mt-0.5 text-xs text-muted">{alert.detail}</p>}
         <p className="mt-0.5 text-xs text-muted">
-          {alert.source === "station" ? "Pune station network" : alert.place}
+          {alert.region} · valid {alert.date}
           {acked && ` · Acknowledged ${timeFmt.format(new Date(ackedAt!))}`}
         </p>
       </div>

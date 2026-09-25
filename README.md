@@ -1,208 +1,168 @@
-# AtmosFusion — Hybrid AI–NWP Multi-Model Forecast Blending System
+# AtmosFusion — Hybrid AI–NWP Multi-Model Forecast Blending
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-19.2+-61DAFB.svg?logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6.svg?logo=typescript)](https://www.typescriptlang.org)
+> **SIH26081 · NCMRWF, Ministry of Earth Sciences**
+> Blends 13 live global forecasts (physics, AI and ensemble) for 29 districts in Konkan & Goa and Kerala. Each model is weighted by its recent, verified skill against IMD observations at that place.
 
-> **Built for NCMRWF / Ministry of Earth Sciences (MoES) — SIH26081**  
-> Operational multi-model ensemble blending platform dynamically refereeing physical NWP models (*ECMWF IFS, WRF 3km, GFS/BharatFS, NCUM*) and AI forecasting models (*Google GraphCast, ECMWF AIFS*) to eliminate extreme precipitation wash-out over complex Indian terrain.
+Every number in the app comes from a live API or a published dataset. Nothing is hardcoded or simulated. If the pipeline has not been run yet, the dashboard says so and does not show placeholder data.
 
 ---
 
-## 🧭 User flow
+## Data sources
 
-```
-Landing (/) ──► Sign up (/signup) ──► Onboarding (/welcome) ──► Dashboard (/app)
-     │                                role · home region ·          │
-     │                                alert threshold · lead day    ├─ Overview      today's alerts, peaks, regime
-     ├──► Log in (/login) ─────────────────────────────────────────►├─ Stations      Pune AWS map, weights, plume
-     │                                                              ├─ Forecast      regional grid, 2D / 3D terrain
-     └──► Explore the demo (no account, works offline) ────────────►├─ Models        Trust Map + disagreement
-                                                                    ├─ Alerts        acknowledge, CAP 1.2 export
-                                                                    ├─ Verification  scorecard + live checks
-                                                                    └─ Settings      profile, prefs, theme, password, delete
-```
-
-- **Accounts** live in the FastAPI backend: SQLite storage, PBKDF2-SHA256 salted password hashes, signed (HS256) access tokens valid for 7 days, login throttling, and the same error for "wrong password" and "no such account".
-- **Protected routes**: signed-out visitors go to `/login` and return to the page they asked for; new accounts finish onboarding before reaching the dashboard.
-- **Preferences** (home region, default lead day, alert threshold, light/dark/system theme) are saved to the account, and the dashboard opens on them. View state (region, date, lead day) is also kept in the URL, so any view can be shared.
-- **Alert acknowledgements** are stored per user on the server.
-- **Demo mode** needs no account or backend: everything runs in the browser and settings are kept in local storage.
-
-## 📊 Data used in the app
-
-| Where | Data | Engine |
+| What | Source | Used for |
 | :--- | :--- | :--- |
-| Stations, Overview | Five Pune AWS stations with six model forecasts (sample inputs) | FastAPI `services/blend.py`, or the identical in-browser `src/lib/blendEngine.ts` when the backend is offline |
-| Forecast, Models, Verification | Konkan & Goa and Kerala on a 0.25° grid | Deterministic demo generator in the browser (`src/data/demo.ts`), labelled as demo data |
-| Verification (benchmark table) | Pune district skill figures | Static reference figures bundled with the prototype |
+| Live forecasts (latest run, days 1–5) | [Open-Meteo Forecast API](https://open-meteo.com/en/docs): ECMWF IFS 0.25° and 9 km, ECMWF AIFS, NCEP GFS, NCEP AIGFS, NCEP HGEFS mean, DWD ICON, JMA GSM, CMA GRAPES, ECCC GEM, Météo-France ARPEGE, BOM ACCESS-G, UKMO 10 km | Today's blend, alerts, maps |
+| Archived forecasts (what each model predicted at each lead time) | [Open-Meteo Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api) | Skill ledger (weights) and the hindcast scorecard |
+| Model run times | Open-Meteo `static/meta.json` per model | Which run is live, and the valid dates |
+| Rainfall truth | IMD 0.25° gridded rainfall ([imdlib](https://pypi.org/project/imdlib/)): final grids for 2024–2025, real-time grids from 2026 | Verification, skill weights |
+| Max-temperature truth | IMD 1° gridded Tmax (final + real-time) | Tmax skill |
+| Wind truth | ERA5 via the Open-Meteo archive | Wind skill |
+
+Licences: Open-Meteo data is CC BY 4.0 (free tier, non-commercial). IMD data belongs to the India Meteorological Department, Pune. Both are credited in the app.
+
+## How the blend works (Stage A)
+
+For each district, variable and lead day:
+
+1. **Skill ledger.** The ledger compares each model's archived forecasts with IMD truth. Only pairs verified before the forecast was issued are used (`as_of = valid date − lead`), so there is no look-ahead. Errors are decay-weighted (half-life 20 days) over a 90-day window. Each model needs at least 10 pairs; otherwise the district falls back to regional pooling, and then to equal weights.
+2. **Bias correction.** Rain uses a multiplicative ratio clipped to 0.4–2.5. Tmax and wind use an additive correction.
+3. **Weights.** wₘ ∝ (MAEₘ + 0.1)⁻², normalised so Σwₘ = 1.
+4. **Uncertainty.** σ² = weighted model spread² + Σ wₘ (1.2533 · MAEₘ)². P10/P90 and the probabilities of exceeding 64.5, 115.6 and 204.5 mm come from a normal distribution with that σ.
+5. **Alerts.** Yellow, Orange and Red levels follow IMD heavy-rain categories. Each alert records the reasons the blend gave (see `ml/config.yaml → alerts`).
+
+Every constant is in [ml/config.yaml](ml/config.yaml).
+
+## Verification scorecard (real hindcast, lead day 1)
+
+This is a leakage-free Stage A hindcast against IMD 0.25° gridded rain for 2024, covering 29 districts. From `ml/exports/scorecard.json`, the RMSE figures use a 95% block-bootstrap confidence interval (5-day blocks). ETS, POD and FAR use the 64.5 mm heavy-rain threshold.
+
+| System | n | RMSE (mm) | 95% CI | ETS | POD | FAR |
+| :--- | ---: | ---: | :---: | ---: | ---: | ---: |
+| **AtmosFusion (Stage A)** | 9,976 | **13.9** | 12.0–16.2 | **0.28** | **0.39** | 0.45 |
+| Equal-weight mean | 9,976 | 14.4 | 11.6–16.9 | 0.07 | 0.08 | 0.40 |
+| ECMWF IFS 0.25° | 9,541 | 15.3 | 12.5–17.8 | 0.15 | 0.18 | 0.48 |
+| JMA GSM | 7,917 | 16.5 | 13.3–19.5 | 0.13 | 0.16 | 0.52 |
+| CMA GRAPES | 9,976 | 17.0 | 14.1–20.1 | 0.11 | 0.17 | 0.70 |
+| NCEP GFS | 7,337 | 17.7 | 14.2–21.1 | 0.19 | 0.25 | 0.51 |
+
+Caveats:
+- The RMSE confidence intervals overlap, so the RMSE gain is not yet significant. The heavy-rain gain (ETS 0.28 vs 0.07 for the flat average) is the clearer result.
+- The held-out test period (monsoon 2025, frozen in `config.yaml`) will be scored once the archive backfill reaches it.
+- Models with fewer pairs (for example, UKMO 10 km) have archives that start later.
+
+The Verification page shows all models and lead days.
 
 ---
 
-## 🌧 The Core Scientific Problem
+## User flow
 
-Classical multi-model ensembles use **flat arithmetic averaging**:
-$$\bar{y} = \frac{1}{M}\sum_{m=1}^{M} f_m$$
-
-Over complex terrain such as the **Western Ghats escarpment**, this flat average **erases extreme localized precipitation**. For instance, at **Lavasa / Temghar Ghat**, during a 162 mm cloudburst event:
-- High-resolution orographic models (WRF 3km: 175 mm, GraphCast: 165 mm) correctly resolve steep upslope moisture convergence.
-- Coarser global models (GFS: 45 mm, NCUM: 60 mm) severely under-estimate.
-- Flat averaging yields **114 mm** — washing out the **flash flood / mudslide signal by ~48 mm**.
-
-**AtmosFusion solves this with dynamic, cell-by-cell skill weighting.**
-
----
-
-## 📐 Mathematical Formulation
-
-### 1. Skill-Weighted Dynamic Consensus
-Each model $m$ at station/grid cell $s$ is assigned weight $w_{m,s}$ based on rolling 48h Mean Absolute Error ($\text{MAE}_{m,s}$):
-$$w_{m,s} = \frac{\left(\text{MAE}_{m,s} + \epsilon\right)^{-p}}{\sum_{k} \left(\text{MAE}_{k,s} + \epsilon\right)^{-p}}, \qquad \sum_{m} w_{m,s} = 1.000$$
-
-Where:
-- $p = 2.0$ (quadratic skill penalization)
-- $\epsilon = 0.1\text{ mm}$ (numerical stability against zero error)
-
-The consensus forecast $\hat{y}_s$ is computed as:
-$$\hat{y}_s = \sum_{m} w_{m,s} f_{m,s}$$
-
-### 2. Monotonic Parametric Uncertainty Quantiles
-Rather than asserting arbitrary disjoint probabilities, AtmosFusion derives percentiles $P_{10}, P_{50}, P_{90}$ and exceedance probabilities $P(\text{Rain} \ge T)$ from a single continuous distribution fitted to the consensus mean $\mu_s = \hat{y}_s$ and weighted ensemble spread $\sigma_s$:
-$$\sigma_s = \max\left(4.0, \sqrt{\sum_m w_{m,s}(f_{m,s} - \hat{y}_s)^2}\right)$$
-$$P_{90} = \hat{y}_s + 1.28155\,\sigma_s, \qquad P(\text{Rain} \ge T) = 1 - \Phi\left(\frac{T - \hat{y}_s}{\sigma_s}\right)$$
-
-This mathematically guarantees:
-- $P_{10} \le P_{50} \le P_{90}$ (monotonicity)
-- $P(\text{Heavy} \ge 64.5) \ge P(\text{Very Heavy} \ge 115.6) \ge P(\text{Extreme} \ge 204.5)$
-- If threshold $T \ge P_{90}$, then $P(\text{Rain} \ge T) \le 10\%$.
-
----
-
-## 🏆 Held-Out Verification Scorecard (Pune District Benchmark)
-
-| Model / System | Architecture | Day-1 RMSE (mm) | Day-3 RMSE (mm) | Heavy Rain ETS | Extreme Rain CSI | CRPS Score |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **AtmosFusion Blend** | **Hybrid AI + NWP (Dynamic)** | **11.2** | **13.1** | **0.48** | **0.41** | **4.8** |
-| IMD Static MME | Operational Ensemble | 12.7 | 15.4 | 0.38 | 0.31 | 6.2 |
-| Google GraphCast | AI / ML (0.25°) | 13.8 | 15.9 | 0.36 | 0.30 | 5.5 |
-| ECMWF IFS HRES | Physics NWP (9km) | 14.1 | 16.2 | 0.35 | 0.28 | 5.8 |
-| WRF (3km Meso) | Physics NWP (High-Res) | 14.5 | 16.8 | 0.37 | 0.33 | 5.9 |
-| GFS / BharatFS | Physics NWP (13km) | 15.2 | 17.5 | 0.32 | 0.25 | 6.8 |
-| NCUM | Physics NWP (12km) | 16.6 | 18.2 | 0.31 | 0.22 | 7.1 |
-
----
-
-## 🚀 Quickstart
-
-### 1. Prerequisites
-- **Node.js** 20.19+ or 22.13+
-- **Python** 3.10+ for the backend (needed for accounts; the demo works without it)
-
-### 2. Backend (FastAPI)
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
 ```
-Swagger docs: [http://localhost:8000/docs](http://localhost:8000/docs). The accounts database (`backend/atmosfusion.db`) is created on first start.
+Landing (/) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
+   │                      role · home region ·        ├─ Overview      alerts, wettest districts, run status
+   ├─► Log in ──────────  alert threshold · lead ────►├─ Districts     map + table, per-district blend and weights
+   └─► Explore the demo (no account) ────────────────►├─ Forecast      region view by lead day
+                                                      ├─ Models        weights, skill, and the reasons behind them
+                                                      ├─ Alerts        acknowledge, CAP 1.2 export
+                                                      ├─ Verification  hindcast scorecard vs IMD
+                                                      └─ Settings      profile, preferences, theme, password, delete
+```
 
-### 3. Frontend
+- **Accounts** are stored in SQLite. Passwords are hashed with PBKDF2-SHA256, and access tokens are HS256 and last 7 days. Login attempts are throttled.
+- **The demo** shows the same live data without an account. Its settings and acknowledgements stay in the browser. The backend must be running.
+
+---
+
+## Quickstart (Windows; run from the repository root)
+
+**Prerequisites:** Node.js 20.19+ and Python 3.11.
+
 ```bash
+python -m venv ml/.venv
+ml/.venv/Scripts/python.exe -m pip install -r ml/requirements.lock
+python -m venv backend/.venv
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
 npm install
+```
+
+**1. Produce data.** Do this once, then daily:
+
+```bash
+ml/.venv/Scripts/python.exe -m ml.ingest.openmeteo --run   # archive backfill; stops at the daily budget, re-run next day
+ml/.venv/Scripts/python.exe -m ml.daily.run_cycle          # live forecasts + IMD update + blend → ml/exports/
+```
+
+**2. Serve it:**
+
+```bash
+cd backend && .venv/Scripts/python.exe -m uvicorn main:app --port 8000
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173), then **Get started** to create an account, or **Explore the demo**.
 
-| Command | Output |
-| :--- | :--- |
-| `npm run build` | `dist/` for Vercel/Netlify ([vercel.json](vercel.json) adds the SPA rewrite) |
-| `npm run build:single` | `dist-single/index.html`: one self-contained file with hash routing, a backup for offline demos (demo mode only) |
-| `npm run preview` | Serves the production build locally |
+Open http://localhost:5173.
 
-### 4. Configuration
+The pipeline details are in [ml/README.md](ml/README.md).
+
+### Configuration
 
 | Variable | Where | Purpose |
 | :--- | :--- | :--- |
 | `VITE_API_URL` | frontend `.env` | Backend URL (default `http://localhost:8000`) |
-| `ATMOSFUSION_SECRET` | backend env | Token signing key. If unset, a random key is generated once and stored in the database. **Set it in production.** |
-| `ATMOSFUSION_DB` | backend env | SQLite file path (default `backend/atmosfusion.db`) |
-| `ATMOSFUSION_TOKEN_TTL` | backend env | Session length in seconds (default 7 days) |
-| `ATMOSFUSION_CORS_ORIGINS` | backend env | Comma-separated allowed frontend origins |
+| `ATMOSFUSION_EXPORTS` | backend env | Folder with the pipeline's exports (default `ml/exports`) |
+| `ATMOSFUSION_SECRET` | backend env | Token signing key. If unset, a key is generated once and stored in the database. **Set this in production.** |
+| `ATMOSFUSION_DB` | backend env | SQLite file (default `backend/atmosfusion.db`) |
+| `ATMOSFUSION_TOKEN_TTL` | backend env | Session length in seconds (default: 7 days) |
+| `ATMOSFUSION_CORS_ORIGINS` | backend env | Comma-separated list of allowed frontend origins |
 
-### 5. Tests
+### Tests
+
 ```bash
-cd backend
-pip install -r requirements-dev.txt
-python -m pytest -q
+ml/.venv/Scripts/python.exe -m pytest ml/tests -q
+cd backend && .venv/Scripts/python.exe -m pytest -q
+npx tsc -b && npx eslint . && npm run build
 ```
-28 tests cover the blending engine's guarantees (weights sum to 1, blend = Σ wᵢfᵢ, P10 ≤ P50 ≤ P90, ordered exceedance probabilities, Lavasa's peak preserved) and the full account flow (sign-up, duplicates, hashing at rest, login, throttling, tampered tokens, preferences, password change, acknowledgements, deletion). Frontend checks: `npm run lint` and `npm run build`.
+
+- **ML (25 tests):** daily aggregation and IMD day alignment, the rate-limit budget, and ledger leakage (no truth after the issue time). They also check that weights sum to 1 and that fallback and alert rules work.
+- **Backend (14 tests):** the full account flow and the data endpoints, including the 503 response before the pipeline has run.
 
 ---
 
-## 🎬 Demo Walkthrough
-
-1. **Landing** — the hero card shows the real Lavasa numbers: flat average 114.2 mm, blend 152 mm, observed 162 mm.
-2. **Get started** — create an account, then pick role, home region, alert threshold and default lead day.
-3. **Overview** — open alerts, wettest district, the Pune station peak, and what needs attention. Acknowledge an alert and watch the sidebar badge drop.
-4. **Stations** — Lavasa: the blend misses the observation by 10 mm, the flat average by 47.8 mm. The weights panel explains why (WRF and GraphCast had the lowest recent error on the escarpment).
-5. **Forecast** — switch to 3D terrain and *Worst case*: amber columns mark cells where the 90th percentile reaches 204.5 mm.
-6. **Models** — click a grid cell on the Trust Map to see every weight and the reasons it rose or fell.
-7. **Alerts** — acknowledge, then export CAP 1.2 XML for disaster-response systems.
-8. **Settings** — switch to dark mode; change your threshold and see the alert list update.
-
----
-
-## 🗂 Project Structure
-
-```
-backend/
-  main.py              FastAPI app: station forecasts, scorecard, quantile curves
-  auth.py              SQLite storage, password hashing, signed tokens, login throttling
-  accounts.py          Sign-up, login, profile/preferences, password, delete, alert acks
-  services/blend.py    Blending engine (weights, quantiles, alerts)
-  tests/               pytest: engine invariants + account flow
-src/
-  App.tsx              Routes and guards (the flow above)
-  auth/                Session store (account or demo) and route guards
-  pages/public/        Landing, Login, Signup
-  pages/Welcome.tsx    Onboarding
-  pages/app/           App shell + Overview, Stations, Forecast, Models, Alerts, Verification, Settings
-  components/          Design system (ui.tsx), station map, grid map, alert row
-  data/                View state + data hooks, alerts, regional demo generator
-  lib/                 API client, blending engine, exports, theme, basemaps
-  three/               3D terrain (React Three Fiber)
-```
-
----
-
-## 📡 API Endpoints
+## API
 
 | Method | Path | Auth | Purpose |
 | :--- | :--- | :---: | :--- |
-| POST | `/api/v1/auth/signup` | | Create an account → `{ token, user }` |
-| POST | `/api/v1/auth/login` | | Log in → `{ token, user }` |
+| GET | `/api/v1/health` | | Service status and the latest cycle |
+| GET | `/api/v1/cycles` | | Available forecast cycles |
+| GET | `/api/v1/cycle?issue=YYYYMMDDTHH` | | A forecast cycle (latest if `issue` is omitted): sources, points, blends, weights, probabilities, alerts |
+| GET | `/api/v1/scorecard` | | Hindcast verification rows |
+| POST | `/api/v1/auth/signup`, `/api/v1/auth/login` | | Create an account or log in → `{ token, user }` |
 | GET | `/api/v1/auth/me` | ✓ | Current user |
-| PATCH | `/api/v1/users/me` | ✓ | Update name, role, home region, lead day, threshold, theme, onboarded |
-| POST | `/api/v1/users/me/password` | ✓ | Change password |
-| POST | `/api/v1/users/me/delete` | ✓ | Delete account (password required) |
-| GET | `/api/v1/alerts/acks` | ✓ | List acknowledged alerts |
-| PUT / DELETE | `/api/v1/alerts/acks/{alert_id}` | ✓ | Acknowledge / reopen an alert |
-| GET | `/api/v1/health` | | Service status |
-| GET | `/api/v1/regions/{region}/forecast?lead_day=1` | | Blended station forecasts and alerts (`pune` or `pune-metro`) |
-| GET | `/api/v1/scorecard` | | Benchmark rows |
-| GET | `/api/v1/quantile-curve?station_id=pune-lavasa` | | 10-day P10/P50/P90 plume |
+| PATCH | `/api/v1/users/me` | ✓ | Update profile and preferences |
+| POST | `/api/v1/users/me/password`, `/api/v1/users/me/delete` | ✓ | Change password or delete the account |
+| GET · PUT · DELETE | `/api/v1/alerts/acks[/{id}]` | ✓ | List, acknowledge or reopen alerts |
 
-Authenticated calls send `Authorization: Bearer <token>`.
+The data endpoints return **503** with instructions until `ml.daily.run_cycle` has produced an export.
 
----
+## Exports (in the app)
 
-## 💾 Export Formats
+- **Districts (CSV / GeoJSON).** Blend, P10/P90, equal-weight mean, spread, exceedance probabilities, alert level, and each model's forecast and weight.
+- **Alerts (CAP 1.2 XML / JSON).** Marked `status: Exercise`: this is a prototype, not an official IMD warning.
 
-- **Stations (CSV / GeoJSON)**: blend, flat average, P90, spread, exceedance probabilities, alert level, and per-model weights
-- **Alerts (CAP 1.2 XML / JSON)**: station and district alerts in OASIS Common Alerting Protocol format, marked `status: Exercise` (prototype, not an official warning)
+## Project structure
 
----
+```
+ml/
+  config.yaml            districts, sources, periods, rate limits, blend + alert constants
+  ingest/                Open-Meteo archive, IMD final + real-time grids, ERA5, static
+  live/                  run times, live fetch, Stage A ledger/blend, scorecard
+  daily/run_cycle.py     one command: fetch → blend → export JSON
+  tests/
+backend/
+  main.py                serves ml/exports (cycles, scorecard) + accounts routes
+  auth.py, accounts.py   SQLite accounts, hashing, tokens, preferences, alert acks
+src/
+  data/                  cycle hooks, regions, alerts, URL view state
+  pages/public, pages/app, components/, lib/ (API client, IMD categories, exports, theme)
+```
 
-## 📄 License
-MIT License. Developed for NCMRWF / Ministry of Earth Sciences (MoES).
+## License
+MIT. Developed for NCMRWF, Ministry of Earth Sciences.

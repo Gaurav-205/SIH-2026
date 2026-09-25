@@ -1,9 +1,10 @@
 /**
- * Export helpers for AtmosFusion: CSV, GeoJSON, and CAP 1.2 (XML + JSON).
+ * Export helpers: district forecasts (CSV, GeoJSON) from the live cycle, and CAP 1.2 alerts (XML, JSON).
  */
 
-import type { RegionForecast, AlertLevel } from "@/types/weather";
 import type { AppAlert } from "@/data/alerts";
+import type { Cycle, ForecastRec } from "@/data/cycle";
+import type { AlertLevel } from "./imd";
 
 function download(content: string, filename: string, mime: string) {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
@@ -16,97 +17,52 @@ function download(content: string, filename: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const baseName = (f: RegionForecast) => `atmosfusion_${f.region_id}_D${f.lead_day}`;
+const stamp = (c: Cycle) => c.issue.init_utc.slice(0, 13).replace(/[-:]/g, "");
 
-function csvCell(v: string | number | null): string {
-  if (v === null) return "";
+function csvCell(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "";
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function exportCsv(forecast: RegionForecast) {
-  const headers = [
-    "station_id",
-    "name",
-    "lat",
-    "lng",
-    "elevation_m",
-    "terrain",
-    "observed_rain_24h_mm",
-    "consensus_blend_mm",
-    "simple_average_mm",
-    "p90_mm",
-    "spread_max_min_mm",
-    "p_heavy_ge_64_5",
-    "p_very_heavy_ge_115_6",
-    "p_extreme_ge_204_5",
-    "dominant_model",
-    "dominant_family",
-    "alert_level",
-    "alert_message",
-    ...Object.keys(forecast.stations[0]?.assigned_weights ?? {}).map((m) => `weight_${m}`),
-  ];
-
-  const rows = forecast.stations.map((s) => [
-    s.id,
-    s.name,
-    s.lat,
-    s.lng,
-    s.elevation_m,
-    s.terrain_type,
-    s.observed_rain_24h,
-    s.consensus_blend,
-    s.simple_average,
-    s.worst_case_90th,
-    s.disagreement_index,
-    s.p_heavy_rain,
-    s.p_very_heavy,
-    s.p_extremely_heavy,
-    s.dominant_model,
-    s.dominant_family,
-    s.alert_level,
-    s.active_alert,
-    ...Object.values(s.assigned_weights),
-  ]);
-
-  // BOM so Excel opens UTF-8 (≥, °) correctly
-  const csv = "﻿" + [headers, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
-  download(csv, `${baseName(forecast)}.csv`, "text/csv;charset=utf-8");
+function rainRows(c: Cycle, lead: number): { p: Cycle["points"][number]; f: ForecastRec }[] {
+  const byPoint = new Map(c.forecasts.filter((f) => f.var === "rain" && f.lead === lead).map((f) => [f.point_id, f]));
+  return c.points.flatMap((p) => (byPoint.has(p.id) ? [{ p, f: byPoint.get(p.id)! }] : []));
 }
 
-export function exportGeoJson(forecast: RegionForecast) {
+export function exportDistrictsCsv(c: Cycle, lead: number) {
+  const live = c.sources.filter((s) => s.live).map((s) => s.id);
+  const headers = [
+    "district_id", "district", "region", "lat", "lon", "valid_date", "lead_day", "run_init_utc",
+    "blend_mm", "p10_mm", "p90_mm", "equal_mean_mm", "model_spread_sd_mm", "method",
+    "p_ge_64_5", "p_ge_115_6", "p_ge_204_5", "alert_level",
+    ...live.map((s) => `forecast_${s}`), ...live.map((s) => `weight_${s}`),
+  ];
+  const rows = rainRows(c, lead).map(({ p, f }) => [
+    p.id, p.name, p.region, p.lat, p.lon, f.date, lead, c.issue.init_utc,
+    f.blend, f.p10, f.p90, f.equal_mean, f.spread_sd, f.method,
+    f.prob?.["64.5"], f.prob?.["115.6"], f.prob?.["204.5"], f.alert_level ?? "",
+    ...live.map((s) => f.values[s]), ...live.map((s) => f.weights[s]),
+  ]);
+  const csv = "﻿" + [headers, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
+  download(csv, `atmosfusion_districts_${stamp(c)}_D${lead}.csv`, "text/csv;charset=utf-8");
+}
+
+export function exportDistrictsGeoJson(c: Cycle, lead: number) {
   const geojson = {
     type: "FeatureCollection",
-    metadata: {
-      region_id: forecast.region_id,
-      region_name: forecast.region_name,
-      lead_day: forecast.lead_day,
-      regime: forecast.regime,
-      generated_at: new Date().toISOString(),
-    },
-    features: forecast.stations.map((s) => ({
+    metadata: { run_init_utc: c.issue.init_utc, generated_at: c.generated_at, lead_day: lead, method: c.method.name, attribution: c.attribution },
+    features: rainRows(c, lead).map(({ p, f }) => ({
       type: "Feature",
-      geometry: { type: "Point", coordinates: [s.lng, s.lat, s.elevation_m] },
+      geometry: { type: "Point", coordinates: [p.lon, p.lat] },
       properties: {
-        id: s.id,
-        name: s.name,
-        terrain: s.terrain_type,
-        coverage_radius_km: s.coverage_radius_km,
-        consensus_blend_mm: s.consensus_blend,
-        simple_average_mm: s.simple_average,
-        p90_mm: s.worst_case_90th,
-        spread_mm: s.disagreement_index,
-        p_heavy_rain: s.p_heavy_rain,
-        p_very_heavy: s.p_very_heavy,
-        p_extremely_heavy: s.p_extremely_heavy,
-        dominant_model: s.dominant_model,
-        weights: s.assigned_weights,
-        alert_level: s.alert_level,
-        active_alert: s.active_alert,
+        id: p.id, name: p.name, region: p.region, valid_date: f.date,
+        blend_mm: f.blend, p10_mm: f.p10, p90_mm: f.p90, equal_mean_mm: f.equal_mean,
+        prob: f.prob, alert_level: f.alert_level ?? null, weights: f.weights, forecasts: f.values,
       },
     })),
   };
-  download(JSON.stringify(geojson, null, 2), `${baseName(forecast)}.geojson`, "application/geo+json");
+  download(JSON.stringify(geojson, null, 2), `atmosfusion_districts_${stamp(c)}_D${lead}.geojson`, "application/geo+json");
 }
 
 /* ── CAP 1.2 (OASIS Common Alerting Protocol) ───────────────── */
@@ -118,7 +74,7 @@ const CAP_URGENCY: Record<AlertLevel, string> = { Red: "Immediate", Orange: "Exp
 const capTime = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "+00:00");
 
 export interface CapContext {
-  /** Forecast valid date (YYYY-MM-DD) and lead day, used for onset/expiry. */
+  /** Rain day label: the 24 h ending 08:30 IST on this date. */
   validDate: string;
   lead: number;
   label: string;
@@ -126,16 +82,16 @@ export interface CapContext {
 
 function buildCap(alerts: AppAlert[], ctx: CapContext) {
   const sent = new Date();
-  const onset = new Date(`${ctx.validDate}T00:00:00+05:30`);
-  const expires = new Date(onset.getTime() + 86_400_000);
+  const expires = new Date(`${ctx.validDate}T08:30:00+05:30`);
+  const onset = new Date(expires.getTime() - 86_400_000);
   return {
-    identifier: `ATMOSFUSION-${ctx.label.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}-D${ctx.lead}-${sent.getTime()}`,
+    identifier: `ATMOSFUSION-${ctx.label}-D${ctx.lead}-${sent.getTime()}`,
     sender: "atmosfusion-prototype.local",
     sent: capTime(sent),
-    status: "Exercise", // prototype system — not an operational warning
+    status: "Exercise", // prototype system, not an operational warning
     msgType: "Alert",
     scope: "Public",
-    note: "Generated by the AtmosFusion prototype. Not an official IMD warning.",
+    note: "Generated by the AtmosFusion prototype from live multi-model forecasts. Not an official IMD warning.",
     info: alerts.map((a) => ({
       language: "en-IN",
       category: "Met",
@@ -146,24 +102,15 @@ function buildCap(alerts: AppAlert[], ctx: CapContext) {
       onset: capTime(onset),
       expires: capTime(expires),
       senderName: "AtmosFusion Multi-Model Blending Engine",
-      headline: `${a.level.toUpperCase()} — ${a.headline}`,
+      headline: `${a.level.toUpperCase()}: ${a.headline}`,
       description: a.detail,
-      parameters: [
-        ["alert_id", a.id],
-        ["source", a.source],
-        ["value_mm", a.valueMm.toFixed(1)],
-      ] as [string, string][],
-      area: {
-        areaDesc: a.place,
-        // Stations have a point: CAP circle is "lat,lon radius_km"
-        circle: a.lat !== undefined && a.lng !== undefined ? `${a.lat},${a.lng} 12` : undefined,
-      },
+      parameters: [["alert_id", a.id], ["blend_mm", a.valueMm.toFixed(1)]] as [string, string][],
+      area: { areaDesc: `${a.place}, ${a.region}`, circle: `${a.lat},${a.lng} 25` },
     })),
   };
 }
 
-const xmlEscape = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function exportCapXml(alerts: AppAlert[], ctx: CapContext) {
   const cap = buildCap(alerts, ctx);
@@ -171,21 +118,13 @@ export function exportCapXml(alerts: AppAlert[], ctx: CapContext) {
   const infoXml = cap.info.map((i) =>
     [
       "  <info>",
-      tag("language", i.language, "    "),
-      tag("category", i.category, "    "),
-      tag("event", i.event, "    "),
-      tag("urgency", i.urgency, "    "),
-      tag("severity", i.severity, "    "),
-      tag("certainty", i.certainty, "    "),
-      tag("onset", i.onset, "    "),
-      tag("expires", i.expires, "    "),
-      tag("senderName", i.senderName, "    "),
-      tag("headline", i.headline, "    "),
-      tag("description", i.description, "    "),
+      ...(["language", "category", "event", "urgency", "severity", "certainty", "onset", "expires", "senderName", "headline", "description"] as const).map((k) =>
+        tag(k, i[k], "    ")
+      ),
       ...i.parameters.map(([k, v]) => ["    <parameter>", tag("valueName", k, "      "), tag("value", v, "      "), "    </parameter>"].join("\n")),
       "    <area>",
       tag("areaDesc", i.area.areaDesc, "      "),
-      ...(i.area.circle ? [tag("circle", i.area.circle, "      ")] : []),
+      tag("circle", i.area.circle, "      "),
       "    </area>",
       "  </info>",
     ].join("\n")
@@ -193,13 +132,7 @@ export function exportCapXml(alerts: AppAlert[], ctx: CapContext) {
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">',
-    tag("identifier", cap.identifier, "  "),
-    tag("sender", cap.sender, "  "),
-    tag("sent", cap.sent, "  "),
-    tag("status", cap.status, "  "),
-    tag("msgType", cap.msgType, "  "),
-    tag("scope", cap.scope, "  "),
-    tag("note", cap.note, "  "),
+    ...(["identifier", "sender", "sent", "status", "msgType", "scope", "note"] as const).map((k) => tag(k, cap[k], "  ")),
     ...infoXml,
     "</alert>",
   ].join("\n");
@@ -210,11 +143,7 @@ export function exportCapJson(alerts: AppAlert[], ctx: CapContext) {
   const cap = buildCap(alerts, ctx);
   const json = {
     ...cap,
-    info: cap.info.map(({ parameters, area, ...rest }) => ({
-      ...rest,
-      parameter: parameters.map(([valueName, value]) => ({ valueName, value })),
-      area: area.circle ? area : { areaDesc: area.areaDesc },
-    })),
+    info: cap.info.map(({ parameters, ...rest }) => ({ ...rest, parameter: parameters.map(([valueName, value]) => ({ valueName, value })) })),
   };
   download(JSON.stringify(json, null, 2), `atmosfusion_alerts_${ctx.label}_D${ctx.lead}_cap.json`, "application/json");
 }

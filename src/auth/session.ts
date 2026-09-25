@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { apiRequest, ApiError } from "@/lib/api";
-import type { RegionId } from "@/data/types";
+import type { RegionId } from "@/data/regions";
 
 export type Role = "forecaster" | "disaster_manager" | "researcher" | "other";
 export type Theme = "light" | "dark" | "system";

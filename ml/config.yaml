@@ -1,0 +1,189 @@
+# AtmosFusion ML pipeline configuration (single source of truth for every stage).
+# Dates are ISO strings; all times UTC unless noted.
+
+project:
+  name: atmosfusion
+  data_dir: ml/data          # Parquet outputs (gitignored)
+  cache_dir: ml/cache        # HTTP cache + raw mirrors (gitignored)
+  reports_dir: ml/reports
+
+grid:
+  step_deg: 0.25
+  india_box: {lat: [5.0, 40.0], lon: [65.0, 100.0]}   # all-India is a config change later
+
+regions:
+  konkan: {name: Konkan and Goa, lat: [14.75, 21.0], lon: [72.5, 76.0]}
+  kerala: {name: Kerala, lat: [8.25, 13.0], lon: [74.75, 77.5]}
+
+# M1 scope: district centroids (same list as the website, src/data/meta.ts)
+points:
+  - {id: palghar, region: konkan, name: Palghar, lat: 19.8, lon: 72.9}
+  - {id: thane, region: konkan, name: Thane, lat: 19.3, lon: 73.2}
+  - {id: mumbai, region: konkan, name: Mumbai, lat: 19.05, lon: 72.87}
+  - {id: raigad, region: konkan, name: Raigad, lat: 18.4, lon: 73.1}
+  - {id: ratnagiri, region: konkan, name: Ratnagiri, lat: 17.2, lon: 73.4}
+  - {id: sindhudurg, region: konkan, name: Sindhudurg, lat: 16.1, lon: 73.6}
+  - {id: north-goa, region: konkan, name: North Goa, lat: 15.6, lon: 73.9}
+  - {id: south-goa, region: konkan, name: South Goa, lat: 15.1, lon: 74.1}
+  - {id: nashik-ghats, region: konkan, name: Nashik ghats, lat: 20.0, lon: 73.8}
+  - {id: pune-ghats, region: konkan, name: Pune ghats, lat: 18.6, lon: 73.7}
+  - {id: satara-ghats, region: konkan, name: Satara ghats, lat: 17.6, lon: 73.9}
+  - {id: kolhapur-ghats, region: konkan, name: Kolhapur ghats, lat: 16.6, lon: 74.0}
+  - {id: belagavi, region: konkan, name: Belagavi, lat: 15.9, lon: 74.6}
+  - {id: pune-plains, region: konkan, name: Pune plains, lat: 18.5, lon: 74.4}
+  - {id: nashik-plains, region: konkan, name: Nashik plains, lat: 20.0, lon: 74.4}
+  - {id: kasaragod, region: kerala, name: Kasaragod, lat: 12.5, lon: 75.1}
+  - {id: kannur, region: kerala, name: Kannur, lat: 11.9, lon: 75.5}
+  - {id: wayanad, region: kerala, name: Wayanad, lat: 11.7, lon: 76.1}
+  - {id: kozhikode, region: kerala, name: Kozhikode, lat: 11.3, lon: 75.9}
+  - {id: malappuram, region: kerala, name: Malappuram, lat: 11.0, lon: 76.1}
+  - {id: palakkad, region: kerala, name: Palakkad, lat: 10.8, lon: 76.6}
+  - {id: thrissur, region: kerala, name: Thrissur, lat: 10.5, lon: 76.2}
+  - {id: ernakulam, region: kerala, name: Ernakulam, lat: 10.0, lon: 76.4}
+  - {id: idukki, region: kerala, name: Idukki, lat: 9.9, lon: 77.0}
+  - {id: kottayam, region: kerala, name: Kottayam, lat: 9.6, lon: 76.6}
+  - {id: alappuzha, region: kerala, name: Alappuzha, lat: 9.4, lon: 76.4}
+  - {id: pathanamthitta, region: kerala, name: Pathanamthitta, lat: 9.3, lon: 76.9}
+  - {id: kollam, region: kerala, name: Kollam, lat: 8.9, lon: 76.7}
+  - {id: thiruvananthapuram, region: kerala, name: Thiruvananthapuram, lat: 8.5, lon: 77.0}
+
+sources:
+  # first_date: first archived day-1 value (day-5 appears ~4 days later); last_date: archive end for
+  # discontinued models; live: served by the live Forecast API; meta: Open-Meteo metadata domain used to
+  # record each live run's initialisation time. All verified against the live API on 2026-09-25.
+  - {id: ecmwf_ifs025, family: physics, label: ECMWF IFS 0.25°, first_date: "2024-02-03", live: true, meta: ecmwf_ifs025}
+  - {id: gfs_global, family: physics, label: NCEP GFS, first_date: "2024-01-19", live: true, meta: ncep_gfs025}
+  - {id: icon_global, family: physics, label: DWD ICON, first_date: "2024-01-19", live: true, meta: dwd_icon}
+  - {id: jma_gsm, family: physics, label: JMA GSM, first_date: "2024-01-01", live: true, meta: jma_gsm}
+  - {id: cma_grapes_global, family: physics, label: CMA GRAPES, first_date: "2024-01-19", live: true, meta: cma_grapes_global}
+  - {id: gem_global, family: physics, label: ECCC GEM, first_date: "2024-01-19", live: true}
+  - {id: meteofrance_arpege_world, family: physics, label: Météo-France ARPEGE, first_date: "2024-01-19", max_lead: 3, skip_vars: [wind], live: true, meta: meteofrance_arpege_world025}  # ~4-day runs end inside the day-4 window; no 10 m wind in the archive
+  - {id: bom_access_global, family: physics, label: BOM ACCESS-G, first_date: "2024-01-19", last_date: "2025-06-29", live: false}  # discontinued: last run 2025-06-26
+  - {id: ukmo_global_deterministic_10km, family: physics, label: UK Met Office 10 km, first_date: "2024-08-08", live: true, meta: ukmo_global_deterministic_10km}
+  - {id: ecmwf_ifs, family: physics, label: ECMWF IFS 9 km, first_date: "2025-10-01", live: true, meta: ecmwf_ifs}
+  - {id: ecmwf_aifs025_single, family: ai, label: ECMWF AIFS, first_date: "2025-02-17", live: true, meta: ecmwf_aifs025_single}
+  - {id: ncep_aigfs025, family: ai, label: NCEP AIGFS, first_date: "2026-01-06", live: true, meta: ncep_aigfs025}
+  - {id: ncep_hgefs025_ensemble_mean, family: ensemble, label: NCEP HGEFS mean, first_date: "2026-04-21", live: true, meta: ncep_hgefs025_ensemble_mean}
+  # From the cloud Zarr archives below (not Open-Meteo): no Previous Runs requests are planned for these.
+  - {id: gefs_ens, family: ensemble, label: NCEP GEFS mean (31), first_date: "2024-01-02", live: false, provider: zarr}
+  - {id: ifs_ens, family: ensemble, label: ECMWF IFS ENS mean (51), first_date: "2024-04-02", live: false, provider: zarr}
+
+# Anonymous cloud Zarr archives (dynamical.org; CC BY 4.0, ECMWF/NOAA data). Verified 2026-09-26 by
+# reading one run at all 29 points. Rain only for now (primary variable). ml/ingest/zarr_archive.py.
+zarr_sources:
+  # Same model as the Open-Meteo AIFS source, whose archive starts 2025-02-17; this fills 2024-04..2025-02
+  # so the 2024 training year has an AI model. last_init keeps the two archives from overlapping.
+  - {id: ecmwf_aifs025_single, store: ecmwf/aifs-single/forecast, kind: deterministic, first_init: "2024-04-01", last_init: "2025-02-15", vars: [rain]}
+  # Full ensembles: mean is a blend source; spread and member-counted P(>= threshold) are features.
+  - {id: gefs_ens, store: noaa/gefs/forecast-35-day, kind: ensemble, first_init: "2024-01-01", vars: [rain]}
+  - {id: ifs_ens, store: ecmwf/ifs-ens/forecast-15-day-0-25-degree, kind: ensemble, first_init: "2024-04-01", vars: [rain], enabled: false}  # ~2.5 h backfill: needs the user's go-ahead
+
+zarr:
+  base_url: https://data.dynamical.org
+  init_hour_utc: 0
+  workers: 6
+  measured_seconds_per_run: {ecmwf_aifs025_single: 6.4, gefs_ens: 9.9, ifs_ens: 27.2}  # one run, 29 points, 2026-09-26
+
+variables:
+  # name -> Open-Meteo hourly variable and daily aggregation
+  rain: {om: precipitation, agg: sum, unit: mm}
+  tmax: {om: temperature_2m, agg: max, unit: degC}
+  wind: {om: wind_speed_10m, agg: mean, unit: m/s}
+
+leads: [1, 2, 3, 4, 5]
+
+days:
+  # IMD's rain day ends 03 UTC (08:30 IST). Label convention measured, not assumed (M1, 2026-09-25):
+  # IMD day D = the 24 h ending 03 UTC on D. Offset 0 correlated best for all 9 models with monsoon
+  # data (29k point-days, June-Sept 2024), ahead of -1 and +1.
+  rain_window_end_utc_hour: 3
+  rain_label_offset_days: 0
+  other_vars_tz: Asia/Kolkata      # Tmax and wind use the local calendar day
+
+periods:
+  backfill: {start: "2024-01-01", end: "today-1"}
+  train: {start: "2024-01-01", end: "2025-04-30"}
+  gap_days: 10
+  validate: {kind: blocked_monthly_cv_within_train}
+  test: {start: "2025-06-01", end: "2025-09-30", truth: imd, frozen: true}
+  live: {start: "2026-06-01", truth: imd_realtime}
+
+thresholds_mm: [64.5, 115.6, 204.5]
+
+# Terrain features from Copernicus DEM GLO-90 + Natural Earth coastline (ml/ingest/terrain.py). Class
+# rules are simple, physically motivated thresholds, set before looking at any forecast skill.
+terrain:
+  resolution_deg: 0.0025        # ~275 m resampling of the 90 m DEM
+  context_deg: 0.5              # +/- window for the orographic (windward) index
+  monsoon_flow_from_deg: 240    # mean south-west monsoon low-level flow over the west coast (from WSW)
+  classes:
+    coast_km: 25
+    coast_max_elev_m: 150
+    crest_min_elev_m: 900
+    crest_min_slope_deg: 8
+    windward_min_m_per_km: 15
+    plateau_min_elev_m: 400
+
+# IMD 1991-2020 normal (WMO standard period) at the truth cells: reference forecast for Brier skill
+# scores, and extreme-rain features (local 95th percentile). ml/ingest/climatology.py
+climatology:
+  years: [1991, 2020]
+  window_days: 15          # +/- days pooled around each day of year
+  wet_day_mm: 2.5          # IMD rainy-day definition
+
+# Monsoon active/break labels from the daily standardised rain anomaly over the core zone
+# (method of Rajeevan, Gadgil and Bhate 2010, J. Earth Syst. Sci.; their zone is a polygon over central
+# India, approximated here by a box). Labels are observations: as features they are only used as of the
+# issue date, never the valid date (leakage rule).
+regimes:
+  core_zone: {lat: [18.0, 28.0], lon: [69.0, 88.0]}
+  season_months: [6, 7, 8, 9]
+  active_z: 1.0
+  break_z: -1.0
+  min_run_days: 3
+
+openmeteo:
+  previous_runs_url: https://previous-runs-api.open-meteo.com/v1/forecast
+  archive_url: https://archive-api.open-meteo.com/v1/archive
+  elevation_url: https://api.open-meteo.com/v1/elevation
+  chunk_days: 91                   # dates per request
+  points_per_request: 29
+  # Free tier (non-commercial, CC BY 4.0): 600/min, 5,000/h, 10,000/day weighted calls.
+  # Weight = locations x max(1, variables/10) x max(1, days/14). We stay below these with margin.
+  limits: {minute: 500, hour: 4500, day: 9900}   # live cycle may use up to 9,900 (free tier: 10,000)
+  backfill_day_limit: 8500         # leaves ~1,400 calls a day for live cycles (~350 each)
+
+# Live cycle, Stage A (plan section 6): bias-correct each source with its recent verified record, then
+# weight by inverse squared recent error. Constants are the plan's defaults, not tuned on test data.
+blend:
+  half_life_days: 20          # decaying average of verified errors
+  window_days: 90             # ignore errors older than this
+  min_pairs: 10               # verified days needed before a source is weighted at a point
+  epsilon: 0.1                # added to MAE before inverting (numerical stability)
+  power: 2                    # weight ~ (MAE + epsilon)^-power
+  rain_ratio_clip: [0.4, 2.5] # multiplicative rain bias correction bounds
+  mae_to_sigma: 1.2533        # sqrt(pi/2): converts a MAE into a normal-error standard deviation
+  quantile_z: 1.2816          # 10th/90th percentile of the standard normal
+
+# Stage B (plan section 6 "Stage B settings"): starting values from the plan, not tuned on test data.
+stage_b:
+  lightgbm:
+    num_leaves: 63
+    learning_rate: 0.03
+    min_data_in_leaf: 500
+    feature_fraction: 0.8
+    bagging_fraction: 0.8
+    bagging_freq: 1
+    lambda_l2: 5.0
+  max_trees: 2000
+  early_stopping: 100
+  weight_floor: 0.02
+  tau_grid: [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
+  lambda_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
+  min_sources: 3              # blends need at least this many sources (same as the scorecard)
+
+# IMD-style alert rules applied to the blended rain (same thresholds as IMD's colour codes)
+alerts:
+  red: {blend_mm: 204.5, p_extreme: 0.25, blend_mm_with_p_very_heavy: [150.0, 0.75]}
+  orange: {blend_mm: 115.6, p_very_heavy: 0.40}
+  yellow: {blend_mm: 64.5, p_heavy: 0.45}

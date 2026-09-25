@@ -1,21 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CheckCircle2, Info, XCircle } from "lucide-react";
-import { Badge, Card, PageHeader, Spinner, Stat } from "@/components/ui";
+import { Badge, Card, PageHeader, Segmented, Stat } from "@/components/ui";
+import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
-import { getScorecard } from "@/data/demo";
-import { SOURCE_COLOR, SOURCES } from "@/data/meta";
-import { useBenchmark, useCycle, useStations, useView } from "@/data/state";
-import { pct } from "@/components/scales";
+import { useCycle, useScorecard, type ScoreRow } from "@/data/cycle";
+import { sourceColor } from "@/lib/imd";
+import ValidationPanel from "./ValidationPanel";
 
-const EXTRA: Record<string, { color: string; dash?: string; width: number }> = {
-  "Equal mean": { color: "#98A2B3", dash: "4 4", width: 1.5 },
-  "Static MME": { color: "#475467", dash: "6 3", width: 1.8 },
-  AtmosFusion: { color: "rgb(var(--accent))", width: 3.5 },
-};
-const num = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
-const two = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const label = (m: string) => SOURCES.find((s) => s.id === m)?.name ?? m;
+const BLEND = "AtmosFusion (Stage A)";
+const EQUAL = "Equal-weight mean";
+const num = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? "—" : v.toFixed(d));
+type Period = "test_monsoon_2025" | "all_verified";
 
 function Check({ ok, title, detail }: { ok: boolean; title: string; detail: string }) {
   return (
@@ -31,140 +27,161 @@ function Check({ ok, title, detail }: { ok: boolean; title: string; detail: stri
 }
 
 export default function Verification() {
-  const rows = useMemo(() => getScorecard(), []);
-  const { lead } = useView();
+  const card = useScorecard();
   const cycle = useCycle();
-  const stationData = useStations(lead).data;
-  const stations = useMemo(() => stationData?.data.stations ?? [], [stationData]);
-  const benchmark = useBenchmark().data;
+  const s = card.data;
+  const [period, setPeriod] = useState<Period>("test_monsoon_2025");
+  const [lead, setLead] = useState(1);
 
-  const methods = [...SOURCES.map((s) => s.id), "Equal mean", "Static MME", "AtmosFusion"];
+  const rows = useMemo(() => (s?.rows ?? []).filter((r) => r.period === period), [s, period]);
+  const methods = useMemo(() => {
+    const by = new Map<string, ScoreRow>();
+    rows.filter((r) => r.lead === lead).forEach((r) => by.set(r.method, r));
+    return [...by.values()].sort((a, b) => a.rmse - b.rmse);
+  }, [rows, lead]);
+  const blend = methods.find((m) => m.method === BLEND);
+  const singles = methods.filter((m) => m.family !== "blend");
+  const best = singles[0];
+  const equal = methods.find((m) => m.method === EQUAL);
+  const chartMethods = [BLEND, EQUAL, ...singles.slice(0, 4).map((m) => m.method)];
   const chart = [1, 2, 3, 4, 5].map((l) => {
-    const o: Record<string, number> = { lead: l };
-    rows.filter((r) => r.lead === l).forEach((r) => (o[r.method] = r.rmse));
+    const o: Record<string, number | string> = { lead: l };
+    rows.filter((r) => r.lead === l && chartMethods.includes(r.method)).forEach((r) => (o[r.method] = r.rmse));
     return o;
   });
-  const avg = (m: string, k: "rmse" | "ets") => rows.filter((r) => r.method === m).reduce((a, r) => a + r[k], 0) / 5;
-  const bestSingle = Math.min(...SOURCES.map((s) => avg(s.id, "rmse")));
-  const gain = 1 - avg("AtmosFusion", "rmse") / bestSingle;
-  const gainMme = 1 - avg("AtmosFusion", "rmse") / avg("Static MME", "rmse");
+  const labelOf = (m: string) => rows.find((r) => r.method === m)?.label ?? m;
 
-  // Live physical-consistency checks on the current forecasts
   const checks = useMemo(() => {
-    const n = cycle.blend.length;
-    let weightsOk = true, quantOk = true, probOk = true, nonNeg = true;
-    for (let c = 0; c < n; c++) {
-      let w = 0;
-      for (const s of SOURCES) w += cycle.weights[s.id][c];
-      if (Math.abs(w - 1) > 1e-4) weightsOk = false;
-      if (!(cycle.p10[c] <= cycle.blend[c] + 1e-6 && cycle.blend[c] <= cycle.p90[c] + 1e-6)) quantOk = false;
-      if (!(cycle.prob[64.5][c] >= cycle.prob[115.6][c] - 1e-6 && cycle.prob[115.6][c] >= cycle.prob[204.5][c] - 1e-6)) probOk = false;
-      if (cycle.blend[c] < 0) nonNeg = false;
-    }
-    const st = stations;
+    const f = cycle.data?.forecasts ?? [];
     return [
-      { ok: weightsOk && st.every((s) => Math.abs(Object.values(s.assigned_weights).reduce((a, b) => a + b, 0) - 1) < 0.001), title: "Weights add up to one", detail: "Every grid cell and every station" },
-      { ok: quantOk && st.every((s) => s.worst_case_90th >= s.consensus_blend), title: "Percentiles are ordered", detail: "P10 ≤ P50 ≤ P90 everywhere" },
-      { ok: probOk && st.every((s) => s.p_heavy_rain >= s.p_very_heavy && s.p_very_heavy >= s.p_extremely_heavy), title: "Exceedance chances are ordered", detail: "P(≥64.5) ≥ P(≥115.6) ≥ P(≥204.5)" },
-      { ok: nonNeg && st.every((s) => s.consensus_blend >= 0), title: "No negative rainfall", detail: "Blended rainfall is never below zero" },
-      { ok: st.every((s) => s.consensus_humidity <= 100), title: "Humidity within bounds", detail: "Blended relative humidity ≤ 100% at stations" },
+      { ok: f.every((x) => Math.abs(Object.values(x.weights).reduce((a, b) => a + b, 0) - 1) < 1e-3), title: "Weights add up to one", detail: "Every district, lead day and variable in the live cycle" },
+      { ok: f.every((x) => x.p10 <= x.blend + 1e-9 && x.blend <= x.p90 + 1e-9), title: "Percentiles are ordered", detail: "P10 ≤ blend ≤ P90" },
+      { ok: f.filter((x) => x.prob).every((x) => x.prob!["64.5"] >= x.prob!["115.6"] && x.prob!["115.6"] >= x.prob!["204.5"]), title: "Exceedance chances are ordered", detail: "P(≥64.5) ≥ P(≥115.6) ≥ P(≥204.5)" },
+      { ok: f.filter((x) => x.var !== "tmax").every((x) => x.blend >= 0 && x.p10 >= 0), title: "No negative rain or wind", detail: "Blend and lower bound are never below zero" },
     ];
-  }, [cycle, stations]);
+  }, [cycle.data]);
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Verification" description="Is the blend actually better? Error by lead day for every model, a static ensemble and AtmosFusion, plus live consistency checks." />
+      <PageHeader
+        title="Verification"
+        description="Is the blend actually better? Every live model, an equal-weight mean and AtmosFusion, scored on archived forecasts against IMD rain."
+        actions={
+          <>
+            <Segmented label="Period" value={period} onChange={setPeriod} options={[{ value: "test_monsoon_2025", label: "Monsoon 2025 (test)" }, { value: "all_verified", label: "All verified" }]} />
+            <Segmented label="Lead day" size="sm" value={lead} onChange={setLead} options={[1, 2, 3, 4, 5].map((l) => ({ value: l, label: `D${l}` }))} />
+          </>
+        }
+      />
+      <LiveState loading={card.isLoading} error={card.error} what="the scorecard">
+        {s && (
+          <>
+            <div className="mb-6 flex gap-2 rounded-lg border border-line bg-subtle px-4 py-3 text-sm text-muted">
+              <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <p>
+                Truth: {s.truth}. Period {s.periods[period]?.start} to {s.periods[period]?.end}, {s.points} districts. AtmosFusion uses only errors known before each
+                forecast was issued, and its settings are the plan's defaults (nothing tuned on this data). Each method is scored on the days it has archived forecasts
+                (n below); 95% intervals from a 5-day block bootstrap. Generated {s.generated_at.slice(0, 16).replace("T", " ")} UTC.
+              </p>
+            </div>
 
-      <div className="mb-6 flex gap-2 rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
-        <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
-        <p>
-          The scorecard below is computed over every demo cycle. The simulated skill record is partly informed by each day's own errors, so it shows how
-          the page works, not how much better AtmosFusion is. Real results come from a frozen backtest on held-out 2022 data.
-        </p>
-      </div>
+            {methods.length === 0 ? (
+              <Card>
+                <p className="py-8 text-center text-sm text-muted">
+                  No verified forecasts for this period yet. The archive backfill is still downloading{period === "test_monsoon_2025" ? " 2025" : ""}; this page fills in as it
+                  completes.
+                </p>
+              </Card>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Stat
+                    label="AtmosFusion RMSE"
+                    value={`${num(blend?.rmse)} mm`}
+                    sub={blend ? `95% CI ${num(blend.rmse_lo)}–${num(blend.rmse_hi)} · n = ${blend.n}` : "Not enough data"}
+                    tone="accent"
+                  />
+                  <Stat
+                    label={`Best single model: ${best?.label ?? "—"}`}
+                    value={`${num(best?.rmse)} mm`}
+                    sub={best ? `95% CI ${num(best.rmse_lo)}–${num(best.rmse_hi)} · n = ${best.n}` : undefined}
+                  />
+                  <Stat
+                    label="Heavy-rain skill (ETS ≥ 64.5 mm)"
+                    value={num(blend?.ets_64_5, 2)}
+                    sub={`Equal mean ${num(equal?.ets_64_5, 2)} · best single ${num(best?.ets_64_5, 2)}`}
+                  />
+                </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Lower error than best single model" value={pct.format(gain)} sub="RMSE, averaged over days 1–5" tone="accent" />
-        <Stat label="Lower error than static ensemble" value={pct.format(gainMme)} sub="IMD-style fixed weights" tone="accent" />
-        <Stat label="Heavy-rain skill (ETS)" value={two.format(avg("AtmosFusion", "ets"))} sub={`Static ensemble: ${two.format(avg("Static MME", "ets"))}`} />
-      </div>
+                <Card className="mt-6" title="Error by lead day" description="RMSE in mm/day, lower is better (blend, equal mean, and the four best single models)">
+                  <div className="h-[340px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chart} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                        <CartesianGrid stroke="rgb(var(--line))" vertical={false} />
+                        <XAxis dataKey="lead" tickFormatter={(v) => `Day ${v}`} tick={{ fill: "rgb(var(--muted))", fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: "rgb(var(--muted))", fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <Legend formatter={(v) => <span className="text-xs text-muted">{labelOf(String(v))}</span>} />
+                        <Tooltip formatter={(v, n) => [`${Number(v).toFixed(2)} mm/day`, labelOf(String(n))]} labelFormatter={(l) => `Day ${l}`}
+                          contentStyle={{ background: "rgb(var(--surface))", border: "1px solid rgb(var(--line))", borderRadius: 8, fontSize: 12 }} />
+                        {chartMethods.map((m, i) => (
+                          <Line key={m} type="monotone" dataKey={m} isAnimationActive={false} connectNulls
+                            stroke={m === BLEND ? "rgb(var(--accent))" : m === EQUAL ? "#98A2B3" : sourceColor(i + 2)}
+                            strokeWidth={m === BLEND ? 3.5 : 1.5} strokeDasharray={m === EQUAL ? "4 4" : undefined} dot={{ r: m === BLEND ? 4 : 2 }} />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
 
-      <Card className="mt-6" title="Error by lead day" description="RMSE in mm/day, lower is better">
-        <div className="h-[380px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chart} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid stroke="rgb(var(--line))" vertical={false} />
-              <XAxis dataKey="lead" tickFormatter={(v) => `Day ${v}`} tick={{ fill: "rgb(var(--muted))", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "rgb(var(--muted))", fontSize: 12 }} tickFormatter={(v) => num.format(v)} axisLine={false} tickLine={false} />
-              <Legend formatter={(v) => <span className="text-xs text-muted">{label(String(v))}</span>} />
-              <Tooltip
-                formatter={(v, n) => [`${num.format(Number(v))} mm/day`, label(String(n))]}
-                labelFormatter={(l) => `Day ${l}`}
-                contentStyle={{ background: "rgb(var(--surface))", border: "1px solid rgb(var(--line))", borderRadius: 8, fontSize: 12 }}
-              />
-              {methods.map((m) => (
-                <Line key={m} type="monotone" dataKey={m} dot={{ r: m === "AtmosFusion" ? 4 : 2 }} stroke={EXTRA[m]?.color ?? SOURCE_COLOR[m]} strokeWidth={EXTRA[m]?.width ?? 1.4} strokeDasharray={EXTRA[m]?.dash} isAnimationActive={false} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[36rem] text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="py-2 font-medium">Method</th>
-                {[1, 2, 3, 4, 5].map((l) => <th key={l} className="py-2 text-right font-medium">Day {l}</th>)}
-                <th className="py-2 text-right font-medium">ETS ≥ 64.5</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {methods.map((m) => (
-                <tr key={m} className={cx(m === "AtmosFusion" && "bg-accent-soft/60 font-semibold text-accent")}>
-                  <td className="py-2 pl-1">{label(m)}</td>
-                  {[1, 2, 3, 4, 5].map((l) => <td key={l} className="num py-2 text-right">{num.format(rows.find((r) => r.lead === l && r.method === m)!.rmse)}</td>)}
-                  <td className="num py-2 pr-1 text-right">{two.format(avg(m, "ets"))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                <Card className="mt-6" title={`All methods, day ${lead}`} bodyClassName="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[44rem] text-sm">
+                      <thead>
+                        <tr className="border-b border-line text-left text-xs text-muted">
+                          <th className="px-5 py-2.5 font-medium">Method</th>
+                          <th className="px-2 py-2.5 text-right font-medium">n</th>
+                          <th className="px-2 py-2.5 text-right font-medium">MAE</th>
+                          <th className="px-2 py-2.5 text-right font-medium">RMSE (95% CI)</th>
+                          <th className="px-2 py-2.5 text-right font-medium">Bias</th>
+                          <th className="px-2 py-2.5 text-right font-medium">ETS</th>
+                          <th className="px-2 py-2.5 text-right font-medium">POD</th>
+                          <th className="py-2.5 pl-2 pr-5 text-right font-medium">FAR</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line">
+                        {methods.map((m) => (
+                          <tr key={m.method} className={cx(m.method === BLEND && "bg-accent-soft/60 font-semibold text-accent")}>
+                            <td className="px-5 py-2">{m.label}</td>
+                            <td className="num px-2 py-2 text-right">{m.n}</td>
+                            <td className="num px-2 py-2 text-right">{num(m.mae, 2)}</td>
+                            <td className="num px-2 py-2 text-right">{num(m.rmse, 2)} <span className="text-xs font-normal text-muted">({num(m.rmse_lo)}–{num(m.rmse_hi)})</span></td>
+                            <td className="num px-2 py-2 text-right">{num(m.bias, 2)}</td>
+                            <td className="num px-2 py-2 text-right">{num(m.ets_64_5, 2)}</td>
+                            <td className="num px-2 py-2 text-right">{num(m.pod_64_5, 2)}</td>
+                            <td className="num py-2 pl-2 pr-5 text-right">{num(m.far_64_5, 2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="px-5 py-3 text-xs text-muted">
+                    ETS/POD/FAR at 64.5 mm (IMD heavy rain); {blend?.observed_heavy_days ?? 0} observed heavy-rain district-days in this sample. Overlapping intervals mean a
+                    difference is not yet statistically clear.
+                  </p>
+                </Card>
+              </>
+            )}
+          </>
+        )}
+      </LiveState>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card title="Consistency checks" description={`Recomputed live for ${cycle.region.name}, day ${lead}, and the Pune stations`} bodyClassName="py-1">
+      <ValidationPanel lead={lead} labelOf={(id) => cycle.data?.sources.find((x) => x.id === id)?.label ?? labelOf(id)} />
+
+      {cycle.data && (
+        <Card className="mt-6" title="Consistency checks" description="Recomputed in your browser on the live cycle" bodyClassName="py-1">
           <ul className="divide-y divide-line">{checks.map((c) => <Check key={c.title} {...c} />)}</ul>
         </Card>
-        <Card title="Pune district benchmark" description="Reference figures bundled with the prototype, not computed here" bodyClassName="p-0">
-          {!benchmark ? (
-            <Spinner />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-xs text-muted">
-                    <th className="px-5 py-2.5 font-medium">Model</th>
-                    <th className="px-2 py-2.5 text-right font-medium">D1 RMSE</th>
-                    <th className="px-2 py-2.5 text-right font-medium">D3 RMSE</th>
-                    <th className="px-2 py-2.5 text-right font-medium">ETS</th>
-                    <th className="py-2.5 pl-2 pr-5 text-right font-medium">CRPS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {benchmark.map((r) => (
-                    <tr key={r.model_name} className={cx(r.model_name.includes("AtmosFusion") && "font-semibold text-accent")}>
-                      <td className="px-5 py-2.5">{r.model_name}</td>
-                      <td className="num px-2 py-2.5 text-right">{r.day1_rmse.toFixed(1)}</td>
-                      <td className="num px-2 py-2.5 text-right">{r.day3_rmse.toFixed(1)}</td>
-                      <td className="num px-2 py-2.5 text-right">{r.heavy_rain_ets.toFixed(2)}</td>
-                      <td className="num py-2.5 pl-2 pr-5 text-right">{r.crps_score.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

@@ -11,8 +11,8 @@ import os
 import secrets
 import sqlite3
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, Optional
 
 DB_PATH = os.getenv(
     "ATMOSFUSION_DB",
@@ -96,7 +96,7 @@ def verify_password(password: str, stored: str) -> bool:
 _DUMMY_HASH = hash_password(secrets.token_urlsafe(12))
 
 
-def check_login(email: str, password: str) -> Optional[sqlite3.Row]:
+def check_login(email: str, password: str) -> sqlite3.Row | None:
     with db() as conn:
         row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     if row is None:
@@ -138,7 +138,7 @@ def create_token(user_id: int) -> str:
     return f"{header}.{payload}.{signature}"
 
 
-def decode_token(token: str) -> Optional[int]:
+def decode_token(token: str) -> int | None:
     """Returns the user id for a valid, unexpired token, else None."""
     try:
         header, payload, signature = token.split(".")

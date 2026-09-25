@@ -1,31 +1,9 @@
 /**
- * AtmosFusion API client.
- * - fetchApi: public forecast data; returns null when the backend is unreachable so callers
- *   can fall back to the identical in-browser engine.
- * - apiRequest: account calls; throws ApiError with a human-readable message.
+ * AtmosFusion API client. All data (live forecast cycle, scorecard, accounts) comes from the backend;
+ * errors are raised as ApiError with a human-readable message (status 0 = server unreachable).
  */
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
-
-// After a failed request, skip the backend for this long before probing again.
-const RETRY_AFTER_MS = 30_000;
-let backendDownUntil = 0;
-
-/** Returns parsed JSON, or null when the backend is unreachable or errors. */
-export async function fetchApi<T>(path: string, timeoutMs = 2000): Promise<T | null> {
-  if (Date.now() < backendDownUntil) return null;
-  try {
-    const res = await fetch(`${API_BASE_URL}${path}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) {
-      if (res.status >= 500) backendDownUntil = Date.now() + RETRY_AFTER_MS;
-      return null;
-    }
-    return (await res.json()) as T;
-  } catch {
-    backendDownUntil = Date.now() + RETRY_AFTER_MS;
-    return null;
-  }
-}
 
 export class ApiError extends Error {
   /** HTTP status; 0 means the server could not be reached. */
@@ -37,7 +15,7 @@ export class ApiError extends Error {
 }
 
 export const OFFLINE_MESSAGE =
-  "Can't reach the AtmosFusion server. Start the backend, or explore the demo instead.";
+  "Can't reach the AtmosFusion server. Start it with: uvicorn main:app --port 8000 (in backend/).";
 
 interface FastApiValidationError {
   loc?: (string | number)[];

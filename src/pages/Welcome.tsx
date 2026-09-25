@@ -4,8 +4,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button, Logo, Segmented } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { firstName, ROLE_LABELS, useSession, type Role, type Threshold } from "@/auth/session";
-import { REGIONS } from "@/data/meta";
-import type { RegionId } from "@/data/types";
+import { REGIONS, type RegionId } from "@/data/regions";
 
 const ROLE_HELP: Record<Role, string> = {
   forecaster: "Issue bulletins and need the blend, its range and the reasons.",
@@ -91,7 +90,7 @@ export default function Welcome() {
         ))}
       </div>
     </Step>,
-    <Step key="region" title="Choose your home region" description="Your dashboard opens on this region. The Pune station network is always available too.">
+    <Step key="region" title="Choose your home region" description="Your dashboard opens on this region; you can switch regions any time.">
       <div role="radiogroup" aria-label="Home region" className="space-y-3">
         {(Object.keys(REGIONS) as RegionId[]).map((r) => (
           <Choice key={r} selected={region === r} onClick={() => setRegion(r)} title={REGIONS[r].name} body={REGION_HELP[r]} />

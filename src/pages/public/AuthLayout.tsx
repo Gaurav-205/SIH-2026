@@ -4,9 +4,9 @@ import { CheckCircle2 } from "lucide-react";
 import { Logo } from "@/components/ui";
 
 const points = [
-  "Blends six physics and AI weather models by recent skill",
+  "Blends 12 live physics, ensemble and AI models by verified skill",
   "Keeps the cloudburst signal that flat averaging washes out",
-  "Alerts by station and district, exportable as CAP 1.2",
+  "District alerts against your threshold, exportable as CAP 1.2",
 ];
 
 export default function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle: ReactNode; children: ReactNode; footer: ReactNode }) {
@@ -33,7 +33,7 @@ export default function AuthLayout({ title, subtitle, children, footer }: { titl
         </svg>
         <p className="relative text-sm font-medium text-white/80">AtmosFusion</p>
         <div className="relative">
-          <p className="text-3xl font-semibold leading-tight tracking-tight text-white">Six models disagree.<br />You get one forecast you can trust.</p>
+          <p className="text-3xl font-semibold leading-tight tracking-tight text-white">Twelve models disagree.<br />You get one forecast you can trust.</p>
           <ul className="mt-8 space-y-3">
             {points.map((p) => (
               <li key={p} className="flex gap-3 text-sm text-white/90">

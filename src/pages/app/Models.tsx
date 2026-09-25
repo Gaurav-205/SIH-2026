@@ -1,195 +1,163 @@
-import { useCallback, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Card, PageHeader, Segmented } from "@/components/ui";
-import GridMap from "@/components/GridMap";
-import Legend from "@/components/Legend";
-import { useCycle } from "@/data/state";
-import { byDistrict, districtName } from "@/data/aggregate";
-import { FAMILY_LABEL, SOURCE_COLOR, SOURCES } from "@/data/meta";
-import { fmt, pct, rainColor, rgb, spreadColor } from "@/components/scales";
-import type { Cycle, Reason } from "@/data/types";
+import DistrictMap from "@/components/DistrictMap";
+import LiveState from "@/components/LiveState";
+import { useCycle, useCycleIndex, type Cycle, type ForecastRec } from "@/data/cycle";
+import { REGIONS } from "@/data/regions";
+import { useView } from "@/data/state";
+import { FAMILY_LABEL, sourceColor } from "@/lib/imd";
 
-function explain(rs: Reason[], want: "up" | "down"): Reason[] {
-  const main = rs.filter((r) => r.effect === want);
-  if (main.length) return [...main, ...rs.filter((r) => r.effect !== want)].slice(0, 3);
-  return [{ text: want === "up" ? "Smallest recent errors in this area" : "Larger recent errors here than the others", effect: want }, ...rs].slice(0, 3);
+function topSource(f: ForecastRec): [string, number] | null {
+  const e = Object.entries(f.weights);
+  return e.length ? e.reduce((a, b) => (b[1] > a[1] ? b : a)) : null;
 }
 
-function TrustTab({ cycle }: { cycle: Cycle }) {
-  const dominant = useMemo(() => {
-    const out = new Int8Array(cycle.blend.length);
-    const top = new Float32Array(cycle.blend.length);
-    for (let c = 0; c < out.length; c++) {
-      let best = 0;
-      SOURCES.forEach((s, k) => {
-        if (cycle.weights[s.id][c] > cycle.weights[SOURCES[best].id][c]) best = k;
-      });
-      out[c] = best;
-      top[c] = cycle.weights[SOURCES[best].id][c];
-    }
-    return { out, top };
-  }, [cycle]);
-
-  const firstCellOfDistrict = useMemo(() => {
-    const m = new Map<number, number>();
-    for (let c = 0; c < cycle.district.length; c++) if (cycle.district[c] >= 0 && !m.has(cycle.district[c])) m.set(cycle.district[c], c);
-    return m;
-  }, [cycle]);
-
-  const [cell, setCell] = useState<number | null>(null);
-  const sel = cell !== null && cycle.district[cell] >= 0 ? cell : firstCellOfDistrict.values().next().value ?? 0;
-
-  const color = useCallback(
-    (c: number) => {
-      const hex = SOURCE_COLOR[SOURCES[dominant.out[c]].id];
-      const a = 0.45 + 0.55 * Math.min(1, (dominant.top[c] - 0.12) / 0.3);
-      const n = parseInt(hex.slice(1), 16);
-      return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a.toFixed(2)})`;
-    },
-    [dominant]
-  );
-
-  const ranked = SOURCES.map((s) => ({ ...s, w: cycle.weights[s.id][sel], f: cycle.sources[s.id][sel] })).sort((a, b) => b.w - a.w);
-  const top = ranked[0];
-  const bottom = ranked[ranked.length - 1];
-
-  return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
-      <Card title="Trust Map" description="Each cell shows the model with the largest weight. Paler means trust was shared more evenly. Click a cell.">
-        <div className="flex justify-center">
-          <GridMap
-            cycle={cycle}
-            color={color}
-            selected={sel}
-            onSelect={setCell}
-            label={`Trust Map of ${cycle.region.name}: the most trusted model per grid cell`}
-            describe={(c) => `${districtName(cycle, c)}: ${SOURCES[dominant.out[c]].name}, ${pct.format(dominant.top[c])}`}
-          />
-        </div>
-        <div className="mt-4">
-          <Legend title="Most trusted model" items={SOURCES.map((s) => ({ color: SOURCE_COLOR[s.id], label: `${s.name} (${FAMILY_LABEL[s.family]})` }))} />
-        </div>
-      </Card>
-
-      <div className="space-y-6">
-        <Card title={`Weights in ${districtName(cycle, sel)}`} description="For the selected grid cell">
-          <label className="mb-4 block text-xs font-medium text-muted">
-            Jump to district
-            <select
-              value={cycle.district[sel]}
-              onChange={(e) => setCell(firstCellOfDistrict.get(Number(e.target.value)) ?? null)}
-              className="mt-1 block h-9 w-full rounded-lg border border-line bg-surface px-2 text-sm text-fg focus:border-accent focus:outline-none"
-            >
-              {[...firstCellOfDistrict.keys()].map((k) => (
-                <option key={k} value={k}>{cycle.region.districts[k].name}</option>
-              ))}
-            </select>
-          </label>
-          <ul className="space-y-3" aria-live="polite">
-            {ranked.map((s) => (
-              <li key={s.id} className="text-sm">
-                <div className="flex justify-between">
-                  <span className="text-fg">{s.name}</span>
-                  <span className="num font-semibold text-fg">{pct.format(s.w)}</span>
-                </div>
-                <div className="mt-1.5 h-1.5 rounded-full bg-subtle">
-                  <div className="h-1.5 rounded-full" style={{ width: `${s.w * 100}%`, background: SOURCE_COLOR[s.id] }} />
-                </div>
-                <p className="num mt-1 text-xs text-muted">Forecast {fmt.format(s.f)} mm</p>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card title="Why">
-          {[
-            { s: top, title: `${top.name} leads here`, want: "up" as const },
-            { s: bottom, title: `${bottom.name} counts least`, want: "down" as const },
-          ].map(({ s, title, want }) => (
-            <div key={s.id} className="mb-4 last:mb-0">
-              <h3 className="text-sm font-semibold text-fg">{title}</h3>
-              <ul className="mt-2 space-y-1.5 text-sm">
-                {explain(cycle.reasons(sel, s.id), want).map((r) => (
-                  <li key={r.text} className="flex gap-2 text-muted">
-                    {r.effect === "up" ? <ArrowUp className="mt-0.5 h-4 w-4 flex-shrink-0 text-ok" aria-label="raises trust" /> : <ArrowDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-warn" aria-label="lowers trust" />}
-                    <span>{r.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function SourceMap({ cycle, id }: { cycle: Cycle; id: string }) {
-  const field = id === "obs" ? cycle.obs : cycle.sources[id];
-  const color = useCallback((c: number) => rgb(rainColor(field[c])), [field]);
-  const source = SOURCES.find((s) => s.id === id);
-  const name = source?.name ?? "What fell (demo)";
-  return (
-    <figure className="rounded-xl border border-line p-3">
-      <GridMap compact cycle={cycle} color={color} label={`${name} rainfall`} describe={(c) => `${districtName(cycle, c)}: ${fmt.format(field[c])} mm`} />
-      <figcaption className="mt-2 flex items-center gap-2 text-sm">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: source ? SOURCE_COLOR[id] : "rgb(var(--fg))" }} />
-        <span className="font-medium text-fg">{name}</span>
-        {source && <span className="text-xs text-muted">{FAMILY_LABEL[source.family]}</span>}
-      </figcaption>
-    </figure>
-  );
-}
-
-function DisagreementTab({ cycle }: { cycle: Cycle }) {
-  const color = useCallback((c: number) => rgb(spreadColor(cycle.spread[c])), [cycle]);
-  const top = byDistrict(cycle, cycle.spread).slice(0, 5);
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
-        <Card title="Spread between the six models" description="Darker violet means the models disagree more (standard deviation, mm/day). Check the Trust Map there before relying on the blend.">
-          <div className="flex justify-center">
-            <GridMap cycle={cycle} color={color} label="Disagreement between models" describe={(c) => `${districtName(cycle, c)}: models differ by ±${fmt.format(cycle.spread[c])} mm`} />
-          </div>
-          <div className="mt-4 flex items-center gap-3 text-xs text-muted" aria-hidden="true">
-            <span>Agree</span>
-            <span className="h-2.5 w-40 rounded-full" style={{ background: "linear-gradient(90deg,#F4F3F8,#D7CCEE,#A083E0,#5B3FA0,#2F1F63)" }} />
-            <span>Disagree</span>
-          </div>
-        </Card>
-        <Card title="Biggest disagreement" bodyClassName="p-0">
-          <ul className="divide-y divide-line text-sm">
-            {top.map((d) => (
-              <li key={d.name} className="flex justify-between px-5 py-3">
-                <span className="text-fg">{d.name}</span>
-                <span className="num text-muted">±{fmt.format(d.max)} mm</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
-      <Card title="Each model on its own" description="Same colour scale as the Forecast page">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {SOURCES.map((s) => (
-            <SourceMap key={s.id} cycle={cycle} id={s.id} />
-          ))}
-          <SourceMap cycle={cycle} id="obs" />
-        </div>
-      </Card>
-    </div>
-  );
+function spreadColor(sd: number) {
+  return sd >= 40 ? "#5B3FA0" : sd >= 20 ? "#8B6FD0" : sd >= 10 ? "#B9A5E8" : "#DAD2F2";
 }
 
 export default function Models() {
+  const { region, lead } = useView();
   const cycle = useCycle();
+  const c: Cycle | undefined = cycle.data;
+  const idx = useCycleIndex(c);
   const [tab, setTab] = useState<"trust" | "spread">("trust");
+
+  const rows = useMemo(
+    () =>
+      (c?.points ?? [])
+        .filter((p) => p.region === region)
+        .map((p) => ({ p, f: idx.get(p.id, lead, "rain")! }))
+        .filter((r) => r.f),
+    [c, idx, region, lead]
+  );
+  const live = (c?.sources ?? []).filter((s) => s.live);
+  const weighted = rows.filter((r) => r.f.method === "stage_a");
+
   return (
     <div className="animate-fade-in">
       <PageHeader
         title="Models"
-        description={`How the six physics, ensemble and AI models were weighted over ${cycle.region.name}, and where they disagree.`}
+        description={`How ${live.length} live physics, ensemble and AI models were weighted for day-${lead} rain over ${REGIONS[region].name}, and where they disagree.`}
         actions={<Segmented label="Models view" value={tab} onChange={setTab} options={[{ value: "trust", label: "Trust Map" }, { value: "spread", label: "Disagreement" }]} />}
       />
-      {tab === "trust" ? <TrustTab cycle={cycle} /> : <DisagreementTab cycle={cycle} />}
+      <LiveState loading={cycle.isLoading} error={cycle.error}>
+        {c && tab === "trust" && (
+          <div className="space-y-6">
+            {weighted.length === 0 && (
+              <p className="rounded-lg border border-warn/25 bg-warn-soft px-3 py-2 text-sm text-warn">
+                No district has enough verified history yet, so every model has equal weight. The Trust Map fills in as archived forecasts are
+                verified against IMD rain.
+              </p>
+            )}
+            <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+              <Card title="Trust Map" description="Colour = the model with the largest weight in each district">
+                <DistrictMap
+                  points={rows.map((r) => r.p)}
+                  colorOf={(p) => {
+                    const t = topSource(idx.get(p.id, lead, "rain")!);
+                    return t ? sourceColor(idx.sourceIndex(t[0])) : "#94a3b8";
+                  }}
+                  valueOf={(p) => {
+                    const f = idx.get(p.id, lead, "rain")!;
+                    const t = topSource(f);
+                    return f.method === "stage_a" && t ? `${idx.source(t[0])?.label ?? t[0]} ${Math.round(t[1] * 100)}%` : "equal";
+                  }}
+                  className="h-[460px]"
+                />
+              </Card>
+              <Card title="Live models" description="Run times come from each provider's metadata" bodyClassName="p-0">
+                <ul className="divide-y divide-line text-sm">
+                  {c.sources.map((s, i) => (
+                    <li key={s.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: sourceColor(i) }} />
+                        <span className={s.live ? "text-fg" : "text-muted line-through"}>{s.label}</span>
+                        <span className="text-xs text-muted">{FAMILY_LABEL[s.family]}</span>
+                      </span>
+                      <span className="num text-xs text-muted">
+                        {s.live ? (s.run_init_utc ? `${s.run_init_utc.slice(0, 16).replace("T", " ")} UTC` : "run time n/a") : "discontinued"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
+            <Card title="Weight matrix" description="Share of the blend each model earned, per district (blank = not weighted)" bodyClassName="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-line text-left text-muted">
+                      <th className="sticky left-0 bg-surface px-4 py-2 font-medium">District</th>
+                      {live.map((s) => (
+                        <th key={s.id} className="px-2 py-2 text-right font-medium" title={s.label}>
+                          {s.label.replace(/^(ECMWF|NCEP|DWD|JMA|CMA|ECCC|Météo-France|UK Met Office|BOM) /, "")}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {rows.map(({ p, f }) => (
+                      <tr key={p.id}>
+                        <td className="sticky left-0 bg-surface px-4 py-2 text-fg">{p.name}</td>
+                        {live.map((s) => {
+                          const w = f.weights[s.id];
+                          return (
+                            <td key={s.id} className="num px-2 py-2 text-right" style={w !== undefined ? { background: `rgba(37,99,235,${Math.min(0.6, w)})`, color: w > 0.35 ? "white" : undefined } : undefined}>
+                              {w !== undefined ? Math.round(w * 100) : ""}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {c && tab === "spread" && (
+          <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+            <Card title="Spread between models" description="Standard deviation of the live model forecasts (mm)">
+              <DistrictMap
+                points={rows.map((r) => r.p)}
+                colorOf={(p) => spreadColor(idx.get(p.id, lead, "rain")!.spread_sd)}
+                valueOf={(p) => `±${idx.get(p.id, lead, "rain")!.spread_sd.toFixed(0)}`}
+                className="h-[460px]"
+              />
+            </Card>
+            <Card title="Each model on its own" description="Raw day-lead rain forecast per district (mm), before bias correction" bodyClassName="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-line text-left text-muted">
+                      <th className="sticky left-0 bg-surface px-4 py-2 font-medium">District</th>
+                      {live.map((s) => (
+                        <th key={s.id} className="px-2 py-2 text-right font-medium" title={s.label}>
+                          {s.label.replace(/^(ECMWF|NCEP|DWD|JMA|CMA|ECCC|Météo-France|UK Met Office|BOM) /, "")}
+                        </th>
+                      ))}
+                      <th className="px-4 py-2 text-right font-medium">± SD</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {[...rows].sort((a, b) => b.f.spread_sd - a.f.spread_sd).map(({ p, f }) => (
+                      <tr key={p.id}>
+                        <td className="sticky left-0 bg-surface px-4 py-2 text-fg">{p.name}</td>
+                        {live.map((s) => (
+                          <td key={s.id} className="num px-2 py-2 text-right text-fg">{f.values[s.id] !== undefined ? f.values[s.id].toFixed(1) : "—"}</td>
+                        ))}
+                        <td className="num px-4 py-2 text-right font-semibold text-fg">{f.spread_sd.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+      </LiveState>
     </div>
   );
 }

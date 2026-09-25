@@ -1,110 +1,106 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
-import { Card, PageHeader, Segmented, Spinner } from "@/components/ui";
-import GridMap from "@/components/GridMap";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import { useCycle, useView } from "@/data/state";
-import { byDistrict, districtName } from "@/data/aggregate";
-import { RAIN_STOPS, rainColor, rgb, fmt } from "@/components/scales";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, PageHeader, Segmented } from "@/components/ui";
+import DistrictMap from "@/components/DistrictMap";
+import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
-import type { View } from "@/data/types";
+import { fmtDay, useCycle, useCycleIndex, type ForecastRec } from "@/data/cycle";
+import { REGIONS } from "@/data/regions";
+import { useView } from "@/data/state";
+import { IMD_CATEGORIES, imdCategory } from "@/lib/imd";
 
-const TerrainScene = lazy(() => import("@/three/TerrainScene"));
+type View = "p10" | "blend" | "p90" | "equal_mean";
 
 const VIEWS: { value: View; label: string; help: string }[] = [
   { value: "p10", label: "Best case", help: "10th percentile: 9 in 10 chance of more rain than this" },
-  { value: "p50", label: "Most likely", help: "The AtmosFusion blend" },
+  { value: "blend", label: "Most likely", help: "The AtmosFusion blend" },
   { value: "p90", label: "Worst case", help: "90th percentile: 1 in 10 chance of more rain than this" },
-  { value: "obs", label: "What fell", help: "Observed rainfall (demo data)" },
+  { value: "equal_mean", label: "Equal mean", help: "Plain average of all live models, for comparison" },
 ];
 
 export default function Forecast() {
+  const { region, lead, query } = useView();
   const cycle = useCycle();
-  const { lead } = useView();
-  const [view, setView] = useState<View>("p50");
-  const [mode, setMode] = useState<"2d" | "3d">("2d");
-  const [columns, setColumns] = useState(true);
-  const field = view === "p10" ? cycle.p10 : view === "p90" ? cycle.p90 : view === "obs" ? cycle.obs : cycle.blend;
-  const color = useCallback((c: number) => rgb(rainColor(field[c])), [field]);
-  const rows = useMemo(() => byDistrict(cycle, cycle.blend), [cycle]);
-  const worst = useMemo(() => byDistrict(cycle, cycle.p90), [cycle]);
-  const best = useMemo(() => byDistrict(cycle, cycle.p10), [cycle]);
-  const of = (list: typeof rows, name: string) => list.find((w) => w.name === name)?.max ?? 0;
-  const viewLabel = VIEWS.find((v) => v.value === view)!;
+  const c = cycle.data;
+  const idx = useCycleIndex(c);
+  const [view, setView] = useState<View>("blend");
+  const viewInfo = VIEWS.find((x) => x.value === view)!;
+
+  const rows = useMemo(
+    () =>
+      (c?.points ?? [])
+        .filter((p) => p.region === region)
+        .map((p) => ({ p, f: idx.get(p.id, lead, "rain") as ForecastRec }))
+        .filter((r) => r.f)
+        .sort((a, b) => b.f.blend - a.f.blend),
+    [c, idx, region, lead]
+  );
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title={`Rainfall forecast, ${cycle.region.name}`}
-        description={`24-hour rainfall on a 0.25° grid for forecast day ${lead}. ${viewLabel.help}.`}
+        title={`Rainfall forecast, ${REGIONS[region].name}`}
+        description={
+          c ? `24-hour rain ending 08:30 IST on ${fmtDay.format(new Date(c.issue.lead_dates[String(lead)]))} (day ${lead}), blended from ${c.sources.filter((s) => s.live).length} live models. ${viewInfo.help}.` : undefined
+        }
       />
+      <LiveState loading={cycle.isLoading} error={cycle.error}>
+        {c && (
+          <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card title={viewInfo.label} action={<Segmented size="sm" label="Which forecast" value={view} onChange={setView} options={VIEWS.map((x) => ({ value: x.value, label: x.label, title: x.help }))} />}>
+              <DistrictMap
+                points={rows.map((r) => ({ ...r.p, alert: r.f.alert_level }))}
+                colorOf={(p) => imdCategory(idx.get(p.id, lead, "rain")![view]).color}
+                valueOf={(p) => `${Math.round(idx.get(p.id, lead, "rain")![view])} mm`}
+                tooltip={(p) => {
+                  const f = idx.get(p.id, lead, "rain")!;
+                  return `Best ${f.p10.toFixed(0)} · likely ${f.blend.toFixed(1)} · worst ${f.p90.toFixed(0)} mm`;
+                }}
+                className="h-[520px]"
+              />
+              <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="IMD rainfall categories">
+                {[...IMD_CATEGORIES].reverse().map((cat) => (
+                  <li key={cat.label} className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: cat.color }} />
+                    {cat.label} {cat.min > 0 ? `≥ ${cat.min}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
-        <Card
-          title={viewLabel.label}
-          action={<Segmented size="sm" label="Map type" value={mode} onChange={setMode} options={[{ value: "2d", label: "2D" }, { value: "3d", label: "3D terrain" }]} />}
-        >
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <Segmented label="Which forecast" value={view} onChange={setView} options={VIEWS.map((v) => ({ value: v.value, label: v.label, title: v.help }))} />
-            {mode === "3d" && (
-              <label className="flex items-center gap-2 text-sm text-fg">
-                <input type="checkbox" checked={columns} onChange={(e) => setColumns(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
-                Mark worst case ≥ 204.5 mm
-              </label>
-            )}
-          </div>
-
-          {mode === "2d" ? (
-            <div className="flex justify-center">
-              <GridMap cycle={cycle} color={color} label={`${viewLabel.label} rainfall over ${cycle.region.name}`} describe={(c) => `${districtName(cycle, c)}: ${fmt.format(field[c])} mm`} />
-            </div>
-          ) : (
-            <div className="h-[62vh] min-h-[380px] overflow-hidden rounded-xl border border-line">
-              <ErrorBoundary fallback={<div className="grid h-full place-items-center p-6 text-center text-sm text-muted">3D view unavailable in this browser (WebGL is off or unsupported). Switch back to 2D.</div>}>
-                <Suspense fallback={<Spinner label="Loading 3D terrain" />}>
-                  <TerrainScene cycle={cycle} field={field} showColumns={columns} label={`3D rainfall map, ${viewLabel.label.toLowerCase()}`} />
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted" aria-label="Colour scale in mm per day">
-            <span>mm/day</span>
-            {RAIN_STOPS.slice(0, -1).map(([v, c]) => (
-              <span key={v} className="flex items-center gap-1.5">
-                <span className="h-3 w-5 rounded-sm border border-line" style={{ background: c }} aria-hidden="true" />
-                {v}
-              </span>
-            ))}
-            {mode === "3d" && <span className="ml-auto">Drag to rotate · scroll to zoom</span>}
-          </div>
-        </Card>
-
-        <Card title="By district" description="Highest value in each district, mm/day" bodyClassName="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="px-5 py-2.5 font-medium">District</th>
-                <th className="px-2 py-2.5 text-right font-medium">Best</th>
-                <th className="px-2 py-2.5 text-right font-medium">Likely</th>
-                <th className="py-2.5 pl-2 pr-5 text-right font-medium">Worst</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((r) => {
-                const w = of(worst, r.name);
-                return (
-                  <tr key={r.name}>
-                    <td className="px-5 py-2.5 text-fg">{r.name}</td>
-                    <td className="num px-2 py-2.5 text-right text-muted">{fmt.format(of(best, r.name))}</td>
-                    <td className="num px-2 py-2.5 text-right font-medium text-fg">{fmt.format(r.max)}</td>
-                    <td className={cx("num py-2.5 pl-2 pr-5 text-right", w >= 204.5 ? "font-semibold text-danger" : w >= 115.6 ? "font-medium text-warn" : "text-muted")}>{fmt.format(w)}</td>
+            <Card title="By district" description="mm per 24 h; sorted by the blend" bodyClassName="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs text-muted">
+                    <th className="px-5 py-2.5 font-medium">District</th>
+                    <th className="px-2 py-2.5 text-right font-medium">Best</th>
+                    <th className="px-2 py-2.5 text-right font-medium">Likely</th>
+                    <th className="px-2 py-2.5 text-right font-medium">Worst</th>
+                    <th className="py-2.5 pl-2 pr-5 text-right font-medium">Equal</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rows.map(({ p, f }) => (
+                    <tr key={p.id}>
+                      <td className="px-5 py-2.5 text-fg">
+                        <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="hover:underline">
+                          {p.name}
+                        </Link>
+                        {f.method !== "stage_a" && <span className="ml-1 text-xs text-muted" title="Equal weights: no verified history yet">*</span>}
+                      </td>
+                      <td className="num px-2 py-2.5 text-right text-muted">{f.p10.toFixed(0)}</td>
+                      <td className="num px-2 py-2.5 text-right font-medium text-fg">{f.blend.toFixed(1)}</td>
+                      <td className={cx("num px-2 py-2.5 text-right", f.p90 >= 204.5 ? "font-semibold text-danger" : f.p90 >= 115.6 ? "font-medium text-warn" : "text-muted")}>{f.p90.toFixed(0)}</td>
+                      <td className="num py-2.5 pl-2 pr-5 text-right text-muted">{f.equal_mean.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {rows.some((r) => r.f.method !== "stage_a") && <p className="px-5 py-3 text-xs text-muted">* Equal weights: its models don't have enough verified days here yet.</p>}
+            </Card>
+          </div>
+        )}
+      </LiveState>
     </div>
   );
 }

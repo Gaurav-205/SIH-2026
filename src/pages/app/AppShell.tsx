@@ -18,13 +18,13 @@ import { Logo, Segmented, Spinner } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { ROLE_LABELS, useSession } from "@/auth/session";
 import { useAlerts } from "@/data/alerts";
-import { DATES, REGIONS } from "@/data/meta";
-import { LEADS, useStations, useView } from "@/data/state";
-import type { RegionId } from "@/data/types";
+import { fmtRunTime, useCycle } from "@/data/cycle";
+import { REGIONS, type RegionId } from "@/data/regions";
+import { LEADS, useView } from "@/data/state";
 
 const NAV = [
   { to: "/app", end: true, label: "Overview", icon: LayoutDashboard },
-  { to: "/app/stations", label: "Stations", icon: MapPinned },
+  { to: "/app/districts", label: "Districts", icon: MapPinned },
   { to: "/app/forecast", label: "Forecast", icon: CloudRain },
   { to: "/app/models", label: "Models", icon: Network },
   { to: "/app/alerts", label: "Alerts", icon: Bell, badge: true },
@@ -34,14 +34,10 @@ const NAV = [
 
 const DEFAULT_TITLE = "AtmosFusion — multi-model forecast blending";
 
-const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
-
 /** Which view controls each page uses. */
 function controlsFor(path: string) {
-  if (path.startsWith("/app/settings")) return { region: false, date: false, lead: false };
-  if (path.startsWith("/app/stations")) return { region: false, date: false, lead: true };
-  if (path.startsWith("/app/verification")) return { region: false, date: false, lead: false };
-  return { region: true, date: true, lead: true };
+  if (path.startsWith("/app/settings") || path.startsWith("/app/verification")) return { region: false, lead: false };
+  return { region: true, lead: true };
 }
 
 function Initials({ name }: { name: string }) {
@@ -153,9 +149,9 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 function ViewControls() {
   const loc = useLocation();
   const show = controlsFor(loc.pathname);
-  const { region, date, lead, set } = useView();
-  const stations = useStations(lead);
-  const live = stations.data?.live;
+  const { region, lead, set } = useView();
+  const cycle = useCycle();
+  const c = cycle.data;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {show.region && (
@@ -170,30 +166,19 @@ function ViewControls() {
           ))}
         </select>
       )}
-      {show.date && (
-        <select
-          aria-label="Valid date"
-          value={date}
-          onChange={(e) => set({ date: e.target.value })}
-          className="h-8 rounded-lg border border-line bg-surface px-2 text-sm text-fg shadow-sm focus:border-accent focus:outline-none"
-        >
-          {DATES.map((d) => (
-            <option key={d.date} value={d.date}>{dateFmt.format(new Date(d.date))}</option>
-          ))}
-        </select>
-      )}
       {show.lead && (
         <Segmented size="sm" label="Lead day" value={lead} onChange={(v) => set({ lead: v })} options={LEADS.map((d) => ({ value: d, label: `D${d}`, title: `Forecast day ${d}` }))} />
       )}
-      {live !== undefined && (
-        <span
-          className={cx("hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex", live ? "border-ok/20 bg-ok-soft text-ok" : "border-line bg-subtle text-muted")}
-          title={live ? "Station forecasts come from the FastAPI backend" : "Backend not reachable: station forecasts are computed in your browser (identical engine)"}
-        >
-          <span className={cx("h-1.5 w-1.5 rounded-full", live ? "bg-ok" : "bg-muted")} />
-          {live ? "Live API" : "Offline engine"}
-        </span>
-      )}
+      <span
+        className={cx(
+          "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex",
+          c ? "border-ok/20 bg-ok-soft text-ok" : cycle.isLoading ? "border-line bg-subtle text-muted" : "border-danger/20 bg-danger-soft text-danger"
+        )}
+        title={c ? `Live cycle generated ${c.generated_at.slice(0, 16).replace("T", " ")} UTC from ${c.sources.filter((x) => x.live).length} models` : "No live data"}
+      >
+        <span className={cx("h-1.5 w-1.5 rounded-full", c ? "bg-ok" : cycle.isLoading ? "bg-muted" : "bg-danger")} />
+        {c ? `Live · run ${fmtRunTime.format(new Date(c.issue.init_utc))} UTC` : cycle.isLoading ? "Connecting…" : "Offline"}
+      </span>
     </div>
   );
 }

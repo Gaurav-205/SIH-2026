@@ -1,0 +1,27 @@
+# Direct dependencies of the ML pipeline (exact versions used for the reported results: requirements.lock)
+# downloading and caching
+openmeteo-requests
+requests
+requests-cache
+retry-requests
+imdlib
+# arrays, tables, cloud Zarr (dynamical.org over HTTPS)
+numpy
+pandas
+pyarrow
+pyyaml
+xarray
+zarr
+fsspec
+aiohttp
+# terrain
+rasterio
+pyshp
+# models and scores
+lightgbm
+scikit-learn
+scipy
+matplotlib
+# dev
+pytest
+ruff

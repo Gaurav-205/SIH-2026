@@ -4,8 +4,7 @@ import { AlertCircle, CheckCircle2, Monitor, Moon, Sun } from "lucide-react";
 import { Button, Card, Field, PageHeader, Segmented, Select } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { ROLE_LABELS, useSession, type Role, type Theme, type Threshold } from "@/auth/session";
-import { REGIONS } from "@/data/meta";
-import type { RegionId } from "@/data/types";
+import { REGIONS, type RegionId } from "@/data/regions";
 
 type Status = { kind: "ok" | "error"; text: string } | null;
 

@@ -34,3 +34,12 @@ backend/*.db
 backend/*.db-journal
 
 .claude/
+
+# ML pipeline
+ml/.venv/
+ml/data/
+ml/cache/
+__pycache__/
+*.egg-info/
+backend/.venv/
+ml/exports/

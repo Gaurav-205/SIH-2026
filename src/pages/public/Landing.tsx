@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -16,16 +15,16 @@ import {
 import { Logo } from "@/components/ui";
 import { buttonClass } from "@/lib/cx";
 import { useSession } from "@/auth/session";
-import { generateForecast, MODEL_OKABE_ITO } from "@/lib/blendEngine";
-import { MODEL_LABELS } from "@/types/weather";
+import { fmtDay, fmtRunTime, useCycle, useCycleIndex } from "@/data/cycle";
+import { sourceColor } from "@/lib/imd";
 
 const features = [
   { icon: Scale, title: "Skill-weighted blending", body: "Each model is weighted by its recent error at each place, so the models that have been right lately count most." },
-  { icon: MapPinned, title: "Station monitoring", body: "Pune weather stations with every model's forecast, the blended result and the flat average side by side." },
-  { icon: Layers3, title: "Regional forecast in 3D", body: "Rain draped over Western Ghats terrain, with best case, most likely and worst case one click apart." },
-  { icon: Boxes, title: "Trust map with reasons", body: "See which model led in every grid cell and why: recent bias, lead time, regime and agreement." },
+  { icon: MapPinned, title: "District monitoring", body: "29 districts across Konkan-Goa and Kerala, with every model's live forecast, its verified error and the weight it earned." },
+  { icon: Layers3, title: "Range, not just a number", body: "Best case, most likely and worst case for every district, and the chance of crossing IMD's heavy-rain thresholds." },
+  { icon: Boxes, title: "Trust map with reasons", body: "See which model led in every district and why: its recent verified error, its wet or dry bias, and how far it sits from the rest." },
   { icon: BellRing, title: "Alerts you can act on", body: "Station and district alerts against your own threshold, acknowledged per user and exported as CAP 1.2." },
-  { icon: ShieldCheck, title: "Verification built in", body: "Error by lead day for every model and the blend, plus live physical-consistency checks." },
+  { icon: ShieldCheck, title: "Verified against IMD", body: "Error by lead day for every model and the blend, scored on archived forecasts against IMD gridded rainfall." },
 ];
 
 const steps = [
@@ -35,29 +34,51 @@ const steps = [
 ];
 
 function HeroPreview() {
-  const lavasa = useMemo(() => generateForecast(1).stations.find((s) => s.id === "pune-lavasa")!, []);
-  const max = 200;
+  const { data: c, isLoading, error } = useCycle();
+  const idx = useCycleIndex(c);
+  if (isLoading) return <div className="card grid h-[340px] place-items-center p-6 text-sm text-muted shadow-pop">Loading today's forecast…</div>;
+  if (error || !c) {
+    return (
+      <div className="card p-6 shadow-pop">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">Live preview</p>
+        <p className="mt-3 font-semibold text-fg">Live data is offline</p>
+        <p className="mt-2 text-sm text-muted">This card shows today's multi-model forecast once the AtmosFusion backend is running.</p>
+      </div>
+    );
+  }
+  const rain = c.points
+    .map((p) => ({ p, f: idx.get(p.id, 1, "rain") }))
+    .filter((r) => r.f)
+    .sort((a, b) => b.f!.blend - a.f!.blend);
+  const top = rain[0];
+  if (!top) return null;
+  const f = top.f!;
+  const max = Math.max(f.p90, ...Object.values(f.values), 1);
   const bars = [
-    { label: "Flat average", value: lavasa.simple_average, className: "bg-muted/40" },
-    { label: "AtmosFusion blend", value: lavasa.consensus_blend, className: "bg-accent" },
-    { label: "Observed", value: lavasa.observed_rain_24h, className: "bg-fg/80" },
+    { label: "Equal-weight mean", value: f.equal_mean, className: "bg-muted/40" },
+    { label: "AtmosFusion blend", value: f.blend, className: "bg-accent" },
+    { label: "Worst case (P90)", value: f.p90, className: "bg-warn" },
   ];
-  const weights = Object.entries(lavasa.assigned_weights).sort(([, a], [, b]) => b - a).slice(0, 4);
+  const weights = Object.entries(f.weights).sort(([, a], [, b]) => b - a).slice(0, 4);
   return (
     <div className="card relative overflow-hidden p-6 shadow-pop">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Station · Day 1</p>
-          <p className="mt-1 font-semibold text-fg">Lavasa / Temghar Ghat</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Live · wettest district · day 1</p>
+          <p className="mt-1 font-semibold text-fg">{top.p.name}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full border border-danger/20 bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Red alert</span>
+        {f.alert_level ? (
+          <span className="inline-flex items-center rounded-full border border-danger/20 bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">{f.alert_level} alert</span>
+        ) : (
+          <span className="inline-flex items-center rounded-full border border-ok/20 bg-ok-soft px-2 py-0.5 text-xs font-medium text-ok">No alert</span>
+        )}
       </div>
       <div className="mt-6 space-y-3">
         {bars.map((b) => (
           <div key={b.label}>
             <div className="flex justify-between text-xs">
               <span className="text-muted">{b.label}</span>
-              <span className="num font-semibold text-fg">{b.value} mm</span>
+              <span className="num font-semibold text-fg">{b.value.toFixed(1)} mm</span>
             </div>
             <div className="mt-1.5 h-2 rounded-full bg-subtle">
               <div className={`h-2 rounded-full ${b.className}`} style={{ width: `${(b.value / max) * 100}%` }} />
@@ -66,20 +87,20 @@ function HeroPreview() {
         ))}
       </div>
       <div className="mt-6 border-t border-line pt-4">
-        <p className="text-xs font-medium text-muted">Who we trusted here</p>
+        <p className="text-xs font-medium text-muted">{f.method === "stage_a" ? "Who we trusted here" : "Models in the blend (equal weights until verified)"}</p>
         <ul className="mt-2 grid grid-cols-2 gap-2">
           {weights.map(([k, w]) => (
             <li key={k} className="flex items-center gap-2 text-xs text-fg">
-              <span className="h-2 w-2 rounded-full" style={{ background: MODEL_OKABE_ITO[k] }} />
-              <span className="truncate">{MODEL_LABELS[k]}</span>
+              <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: sourceColor(idx.sourceIndex(k)) }} />
+              <span className="truncate">{idx.source(k)?.label ?? k}</span>
               <span className="num ml-auto text-muted">{Math.round(w * 100)}%</span>
             </li>
           ))}
         </ul>
       </div>
       <p className="mt-4 text-xs text-muted">
-        The flat average misses by {Math.round((lavasa.observed_rain_24h - lavasa.simple_average) * 10) / 10} mm; the blend by{" "}
-        {Math.round(Math.abs(lavasa.observed_rain_24h - lavasa.consensus_blend) * 10) / 10} mm.
+        {c.sources.filter((x) => x.live).length} live models, run {fmtRunTime.format(new Date(c.issue.init_utc))} UTC · rain day ending 08:30 IST{" "}
+        {fmtDay.format(new Date(f.date))}
       </p>
     </div>
   );
@@ -128,7 +149,7 @@ export default function Landing() {
               SIH26081 · NCMRWF, Ministry of Earth Sciences
             </p>
             <h1 className="mt-6 text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl">
-              Six weather models.
+              Twelve weather models.
               <br />
               <span className="text-accent">One forecast you can trust.</span>
             </h1>
@@ -144,7 +165,7 @@ export default function Landing() {
                 Explore the demo
               </button>
             </div>
-            <p className="mt-4 text-sm text-muted">The demo runs entirely in your browser. No sign-up needed.</p>
+            <p className="mt-4 text-sm text-muted">The demo uses the same live data. No sign-up needed.</p>
           </div>
           <HeroPreview />
         </section>
@@ -200,7 +221,7 @@ export default function Landing() {
                 blend = Σ<sub>m</sub> w<sub>m</sub> × forecast<sub>m</sub>
               </p>
               <p className="mt-4 text-sm text-muted">
-                MAE is each model's mean absolute error over the last 48 hours at that station; ε = 0.1 mm keeps the weights stable.
+                MAE is each model's recent error against IMD gridded rain at that district (decaying average, 20-day half-life, last 90 days); each forecast is bias-corrected first, and ε = 0.1 mm keeps the weights stable.
               </p>
             </div>
           </div>
@@ -242,7 +263,7 @@ export default function Landing() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <Logo />
-          <p>Built for Smart India Hackathon, problem SIH26081. Regional grid and station inputs are sample data.</p>
+          <p>Built for Smart India Hackathon, problem SIH26081. Live forecasts via Open-Meteo (CC BY 4.0); truth from IMD gridded rainfall.</p>
         </div>
       </footer>
     </div>

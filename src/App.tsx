@@ -2,10 +2,10 @@
  * Routes and user flow:
  *   /            landing          ─► /signup ─► /welcome (onboarding) ─► /app
  *   /login       returning users  ─────────────────────────────────────► /app
- *   /app/*       signed-in workspace (Overview, Stations, Forecast, Models, Alerts, Verification, Settings)
+ *   /app/*       signed-in workspace (Overview, Districts, Forecast, Models, Alerts, Verification, Settings)
  */
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, createHashRouter, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
 import { RedirectIfSignedIn, RequireAuth, RequireOnboarded, SessionRefresh, SignOut, ThemeSync } from "./auth/guards";
 import { Spinner } from "./components/ui";
 import Landing from "./pages/public/Landing";
@@ -16,7 +16,7 @@ const Signup = lazy(() => import("./pages/public/Signup"));
 const Welcome = lazy(() => import("./pages/Welcome"));
 const AppShell = lazy(() => import("./pages/app/AppShell"));
 const Overview = lazy(() => import("./pages/app/Overview"));
-const Stations = lazy(() => import("./pages/app/Stations"));
+const Districts = lazy(() => import("./pages/app/Districts"));
 const Forecast = lazy(() => import("./pages/app/Forecast"));
 const Models = lazy(() => import("./pages/app/Models"));
 const Alerts = lazy(() => import("./pages/app/Alerts"));
@@ -60,7 +60,8 @@ const routes = [
         errorElement: <RouteError />,
         children: [
           { index: true, element: page(<Overview />) },
-          { path: "stations", element: page(<Stations />) },
+          { path: "districts", element: page(<Districts />) },
+          { path: "stations", element: <Navigate to="/app/districts" replace /> },
           { path: "forecast", element: page(<Forecast />) },
           { path: "models", element: page(<Models />) },
           { path: "alerts", element: page(<Alerts />) },
@@ -73,8 +74,7 @@ const routes = [
   },
 ];
 
-// Single-file builds (offline demo) use hash routing; normal builds use clean URLs.
-const router = import.meta.env.MODE === "single" ? createHashRouter(routes) : createBrowserRouter(routes);
+const router = createBrowserRouter(routes);
 
 export default function App() {
   return <RouterProvider router={router} />;

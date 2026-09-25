@@ -94,7 +94,8 @@ def test_update_preferences_and_onboarding(client):
     r = client.patch(
         "/api/v1/users/me",
         headers=_bearer(token),
-        json={"role": "disaster_manager", "home_region": "kerala", "lead_day": 3, "alert_threshold": 64.5, "theme": "dark", "onboarded": True},
+        json={"role": "disaster_manager", "home_region": "kerala", "lead_day": 3, "alert_threshold": 64.5,
+              "theme": "dark", "onboarded": True},
     )
     assert r.status_code == 200
     user = r.json()
@@ -108,9 +109,10 @@ def test_update_preferences_and_onboarding(client):
 def test_change_password(client):
     email = _email()
     token = _signup(client, email=email).json()["token"]
-    bad = client.post("/api/v1/users/me/password", headers=_bearer(token), json={"current_password": "nope", "new_password": "new-secret-99"})
+    url = "/api/v1/users/me/password"
+    bad = client.post(url, headers=_bearer(token), json={"current_password": "nope", "new_password": "new-secret-99"})
     assert bad.status_code == 400
-    ok = client.post("/api/v1/users/me/password", headers=_bearer(token), json={"current_password": "monsoon-2026", "new_password": "new-secret-99"})
+    ok = client.post(url, headers=_bearer(token), json={"current_password": "monsoon-2026", "new_password": "new-secret-99"})
     assert ok.status_code == 204
     assert client.post("/api/v1/auth/login", json={"email": email, "password": "new-secret-99"}).status_code == 200
 
