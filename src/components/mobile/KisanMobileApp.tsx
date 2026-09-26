@@ -14,6 +14,12 @@ import {
   ArrowLeft,
   Share2,
   MapPin,
+  MessageSquare,
+  Send,
+  Copy,
+  Check,
+  Bell,
+  X,
 } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { useCycle, useCycleIndex, useTelemetry } from "@/data/cycle";
@@ -41,6 +47,9 @@ export default function KisanMobileApp({
   const [activeTab, setActiveTab] = useState<"home" | "crops" | "radar" | "tasks">("home");
   const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchSuccess, setDispatchSuccess] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Activities checklist state
   const [tasks, setTasks] = useState([
@@ -76,6 +85,43 @@ export default function KisanMobileApp({
     } else {
       setTimeout(() => setIsPlayingAudio(false), 2500);
     }
+  };
+
+  const getDispatchMessage = () => {
+    const moisture = (tel?.surface?.soil_moisture_0_to_1cm ? tel.surface.soil_moisture_0_to_1cm * 100 : 26).toFixed(0);
+    if (lang === "mr") {
+      return `🌾 *अ‍ॅटमॉस किसान कृषी हवामान सल्ला* 🌾\n📍 तालुका: ${currentTaluka.name} (${currentTaluka.district})\n📅 तारीख: २६ सप्टेंबर २०२६\n\n🌦️ *हवामान अंदाज (१३ मॉडेल्स ब्लेंड)*:\n• तापमान: २९°C\n• पावसाचा अंदाज: ${blendRain.toFixed(1)} मिमी\n• मातीतील ओलावा: ${moisture}%\n\n✅ *महत्वाच्या शिफारसी*:\n१. *फवारणी खिडकी*: दुपारी ४:३० पर्यंत पाऊस नाही (धुवून जाण्याचा धोका ०%). कीटकनाशक फवारणी सुरक्षित आहे.\n२. *सिंचन सल्ला*: मातीतील ओलावा पुरेसा असल्याने आज पाणी देणे टाळा.\n३. *कीड पूर्वसूचना*: रात्री हवेतील आर्द्रता जास्त राहिल्याने द्राक्ष बागेत डाऊनी मिल्ड्यू तपासा.\n\n📡 स्त्रोत: NCMRWF & IMD मल्टि-मॉडेल ब्लेंड सिस्टिम`;
+    }
+    return `🌾 *AtmosKisan Agromet Field Advisory* 🌾\n📍 Taluka: ${currentTaluka.name} (${currentTaluka.district})\n📅 Date: 26 Sep 2026\n\n🌦️ *Weather Blend (13 NWP & AI Models)*:\n• Temp: 29°C | Rain: ${blendRain.toFixed(1)} mm\n• Topsoil Saturation: ${moisture}%\n\n✅ *Field Action Points*:\n1. *Safe Spray Window*: 0% rain washout risk until 4:30 PM. Safe for pesticide/bio-fungicide.\n2. *Irrigation Deferral*: Optimal topsoil moisture (${moisture}%). Defer canal/drip runs.\n3. *Pest Alert*: High night humidity (>66%). Inspect vineyards for downy mildew.\n\n📡 Powered by AtmosFusion Multi-Model Consensus`;
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(getDispatchMessage());
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  const handleShareSMS = () => {
+    const text = encodeURIComponent(getDispatchMessage());
+    window.open(`sms:?body=${text}`, "_self");
+  };
+
+  const handleCopyMessage = () => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(getDispatchMessage());
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSimulateBroadcast = () => {
+    setDispatchSuccess(
+      lang === "mr"
+        ? `पुणे जिल्ह्यातील १,२४० नोंदणीकृत शेतकऱ्यांना व्हॉट्सअ‍ॅप व एसएमएस द्वारे सल्ला यशस्वीरित्या पाठवला!`
+        : `Successfully dispatched advisory to 1,240 registered farmers across Pune via WhatsApp & NIC SMS gateway!`
+    );
+    setTimeout(() => {
+      setDispatchSuccess(null);
+    }, 4500);
   };
 
   const t = {
@@ -187,8 +233,17 @@ export default function KisanMobileApp({
           </div>
         </div>
 
-        {/* Controls: Language toggle & Forecaster desk back button */}
+        {/* Controls: WhatsApp/SMS share, Language toggle & Forecaster desk back button */}
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowDispatchModal(true)}
+            className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-900/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 backdrop-blur hover:bg-emerald-800/70 transition"
+            title="Dispatch Advisory via WhatsApp / SMS"
+          >
+            <MessageSquare className="h-3 w-3 text-emerald-400" />
+            <span>{lang === "mr" ? "सल्ला पाठवा" : "Share"}</span>
+          </button>
           <button
             type="button"
             onClick={() => setLang(lang === "en" ? "mr" : "en")}
@@ -325,6 +380,47 @@ export default function KisanMobileApp({
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-emerald-400" />
             </div>
+          </div>
+        </div>
+
+        {/* Toast alert when broadcast simulation is triggered */}
+        {dispatchSuccess && (
+          <div className="rounded-xl border border-emerald-400 bg-emerald-950/90 p-3 shadow-xl backdrop-blur animate-fade-in text-xs text-emerald-200 flex items-start gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block font-semibold">{lang === "mr" ? "सल्ला प्रसारित झाला!" : "Broadcast Dispatched!"}</strong>
+              <p className="mt-0.5 text-[11px] leading-tight text-emerald-300/90">{dispatchSuccess}</p>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp / SMS Dispatch Callout Card */}
+        <div
+          onClick={() => setShowDispatchModal(true)}
+          className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/80 via-[#072418] to-emerald-950/80 p-3.5 shadow-lg backdrop-blur-md cursor-pointer hover:border-emerald-400/60 transition group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:scale-110 transition">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                  {lang === "mr" ? "शेतकऱ्यांना व्हॉट्सअ‍ॅप / SMS पाठवा" : "Dispatch via WhatsApp / SMS"}
+                </h3>
+                <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-300">
+                  Live Blend
+                </span>
+              </div>
+              <p className="text-[10px] text-emerald-200/70">
+                {lang === "mr"
+                  ? "१३ मॉडेल्सचा अचूक फवारणी व सिंचन सल्ला प्रसारित करा"
+                  : "Share 0% washout spray window & irrigation alert"}
+              </p>
+            </div>
+          </div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition">
+            <Send className="h-3.5 w-3.5" />
           </div>
         </div>
 
@@ -523,6 +619,95 @@ export default function KisanMobileApp({
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp & SMS Dispatch Modal */}
+      {showDispatchModal && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-[#05170f]/95 backdrop-blur-2xl animate-fade-in p-5">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white">
+                {lang === "mr" ? "सल्ला व्हॉट्सअ‍ॅप / SMS द्वारे पाठवा" : "Dispatch Agromet Advisory"}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDispatchModal(false)}
+              className="rounded-full border border-white/10 p-1 text-white/70 hover:bg-white/10 hover:text-white transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            {/* Target Details */}
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs">
+              <div className="flex items-center justify-between text-muted text-[11px]">
+                <span>{lang === "mr" ? "लक्ष्य क्षेत्र" : "Target Taluka"}:</span>
+                <span className="font-semibold text-emerald-300">{currentTaluka.name} ({currentTaluka.district})</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-muted text-[11px]">
+                <span>{lang === "mr" ? "सक्रिय शेतकरी" : "Active Farmers"}:</span>
+                <span className="font-semibold text-white">1,240 registered numbers</span>
+              </div>
+            </div>
+
+            {/* Formatted Message Preview */}
+            <div>
+              <div className="flex items-center justify-between pb-1 text-[11px] text-emerald-300/80">
+                <span>{lang === "mr" ? "संदेश पूर्वावलोकन (WhatsApp/SMS)" : "Message Content Preview"}</span>
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="flex items-center gap-1 font-semibold text-emerald-400 hover:text-white transition"
+                >
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  <span>{copied ? (lang === "mr" ? "कॉपी झाले!" : "Copied!") : (lang === "mr" ? "कॉपी करा" : "Copy")}</span>
+                </button>
+              </div>
+              <div className="rounded-xl border border-emerald-500/30 bg-[#041d13] p-3 text-[11px] leading-relaxed font-mono text-emerald-100 whitespace-pre-wrap max-h-56 overflow-y-auto">
+                {getDispatchMessage()}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 px-4 text-xs font-bold text-black shadow-lg hover:bg-emerald-400 active:scale-[0.98] transition"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>{lang === "mr" ? "व्हॉट्सअ‍ॅपवर उघडा व शेअर करा" : "Share Directly via WhatsApp"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareSMS}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/60 py-2.5 px-4 text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 active:scale-[0.98] transition"
+              >
+                <Send className="h-4 w-4" />
+                <span>{lang === "mr" ? "फोन एसएमएस द्वारे पाठवा" : "Send via Mobile SMS"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleSimulateBroadcast();
+                  setShowDispatchModal(false);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-lime-400/40 bg-lime-500/10 py-2 px-4 text-xs font-semibold text-lime-300 hover:bg-lime-500/20 active:scale-[0.98] transition"
+              >
+                <Bell className="h-4 w-4" />
+                <span>{lang === "mr" ? "१,२४० शेतकऱ्यांना ब्रॉडकास्ट पाठवा (Simulate)" : "Broadcast to 1,240 Pune Farmers (NIC SMS)"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
