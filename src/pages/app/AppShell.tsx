@@ -27,10 +27,10 @@ const NAV = [
   { to: "/app", end: true, label: "Overview", icon: LayoutDashboard },
   { to: "/app/districts", label: "Districts", icon: MapPinned },
   { to: "/app/forecast", label: "Forecast", icon: CloudRain },
+  { to: "/app/mobile", label: "Phone POV (Citizen App)", icon: Smartphone },
   { to: "/app/models", label: "Models", icon: Network },
   { to: "/app/alerts", label: "Alerts", icon: Bell, badge: true },
   { to: "/app/verification", label: "Verification", icon: CheckCircle2 },
-  { to: "/app/mobile", label: "AtmosFusion Mobile", icon: Smartphone },
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
@@ -38,8 +38,7 @@ const DEFAULT_TITLE = "AtmosFusion — multi-model forecast blending";
 
 /** Which view controls each page uses. */
 function controlsFor(path: string) {
-  if (path.startsWith("/app/settings") || path.startsWith("/app/verification") || path.startsWith("/app/mobile"))
-    return { region: false, lead: false };
+  if (path.startsWith("/app/settings") || path.startsWith("/app/verification") || path.startsWith("/app/mobile")) return { region: false, lead: false };
   return { region: true, lead: true };
 }
 
@@ -255,35 +254,6 @@ export default function AppShell() {
             <Menu className="h-5 w-5" />
           </button>
           <p className="text-sm font-semibold text-fg">{title}</p>
-
-          {/* Perspective Switcher: Forecaster Desk vs AtmosFusion Mobile */}
-          <div className="hidden sm:flex items-center rounded-lg border border-line bg-subtle/80 p-0.5 text-xs">
-            <Link
-              to="/app"
-              className={cx(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition",
-                !loc.pathname.startsWith("/app/mobile")
-                  ? "bg-surface text-fg font-semibold shadow-sm"
-                  : "text-muted hover:text-fg"
-              )}
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              <span>Forecaster Desk</span>
-            </Link>
-            <Link
-              to="/app/mobile"
-              className={cx(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition",
-                loc.pathname.startsWith("/app/mobile")
-                  ? "bg-accent text-white font-semibold shadow-sm"
-                  : "text-muted hover:text-fg"
-              )}
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              <span>📱 AtmosFusion Mobile</span>
-            </Link>
-          </div>
-
           <div className="ml-auto">
             <ViewControls />
           </div>

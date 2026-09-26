@@ -21,8 +21,8 @@ const Forecast = lazy(() => import("./pages/app/Forecast"));
 const Models = lazy(() => import("./pages/app/Models"));
 const Alerts = lazy(() => import("./pages/app/Alerts"));
 const Verification = lazy(() => import("./pages/app/Verification"));
-const MobilePreview = lazy(() => import("./pages/app/MobilePreview"));
 const Settings = lazy(() => import("./pages/app/Settings"));
+const MobilePreview = lazy(() => import("./pages/app/MobilePreview"));
 
 function Root() {
   return (
