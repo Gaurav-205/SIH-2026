@@ -11,7 +11,6 @@ import {
   Menu,
   Network,
   Settings,
-  Smartphone,
   WifiOff,
   X,
 } from "lucide-react";
@@ -27,7 +26,6 @@ const NAV = [
   { to: "/app", end: true, label: "Overview", icon: LayoutDashboard },
   { to: "/app/districts", label: "Districts", icon: MapPinned },
   { to: "/app/forecast", label: "Forecast", icon: CloudRain },
-  { to: "/app/mobile", label: "Phone POV (Citizen App)", icon: Smartphone },
   { to: "/app/models", label: "Models", icon: Network },
   { to: "/app/alerts", label: "Alerts", icon: Bell, badge: true },
   { to: "/app/verification", label: "Verification", icon: CheckCircle2 },
@@ -38,7 +36,7 @@ const DEFAULT_TITLE = "AtmosFusion — multi-model forecast blending";
 
 /** Which view controls each page uses. */
 function controlsFor(path: string) {
-  if (path.startsWith("/app/settings") || path.startsWith("/app/verification") || path.startsWith("/app/mobile")) return { region: false, lead: false };
+  if (path.startsWith("/app/settings") || path.startsWith("/app/verification")) return { region: false, lead: false };
   return { region: true, lead: true };
 }
 

@@ -22,7 +22,6 @@ const Models = lazy(() => import("./pages/app/Models"));
 const Alerts = lazy(() => import("./pages/app/Alerts"));
 const Verification = lazy(() => import("./pages/app/Verification"));
 const Settings = lazy(() => import("./pages/app/Settings"));
-const MobilePreview = lazy(() => import("./pages/app/MobilePreview"));
 
 function Root() {
   return (
@@ -68,7 +67,6 @@ const routes = [
           { path: "models", element: page(<Models />) },
           { path: "alerts", element: page(<Alerts />) },
           { path: "verification", element: page(<Verification />) },
-          { path: "mobile", element: page(<MobilePreview />) },
           { path: "settings", element: page(<Settings />) },
         ],
       },
