@@ -4,29 +4,72 @@ import {
   Smartphone,
   ArrowRight,
   CheckCircle2,
+  Layers,
 } from "lucide-react";
 import PhoneSimulator from "@/components/mobile/PhoneSimulator";
-import AtmosFusionMobile from "@/components/mobile/AtmosFusionMobile";
+import MultiScreenPoster from "@/components/mobile/MultiScreenPoster";
+import AtmosFusionMobile, { type MobileScreen } from "@/components/mobile/AtmosFusionMobile";
 import { PageHeader, Button, Card } from "@/components/ui";
+import { cx } from "@/lib/cx";
 
 export default function MobilePreview() {
   const [fullscreenMobile, setFullscreenMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<"poster" | "simulator">("poster");
+  const [activeScreen, setActiveScreen] = useState<MobileScreen>("home");
 
   if (fullscreenMobile) {
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <AtmosFusionMobile onBackToDesk={() => setFullscreenMobile(false)} />
+        <AtmosFusionMobile
+          initialScreen={activeScreen}
+          onBackToDesk={() => setFullscreenMobile(false)}
+        />
       </div>
     );
   }
 
+  const handleSelectPosterScreen = (screen: MobileScreen) => {
+    setActiveScreen(screen);
+    setViewMode("simulator");
+  };
+
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-8">
       <PageHeader
         title="End-User Perspective: AtmosFusion Mobile"
         description="The 2nd half of the system: Translating 13-model physics, AI forecasts, and IMD verification into actionable field operations, catchment status, and citizen alerts."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle: 5-Screen Poster vs Interactive Simulator */}
+            <div className="flex rounded-lg border border-line bg-subtle p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("poster")}
+                className={cx(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition",
+                  viewMode === "poster"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-muted hover:text-fg"
+                )}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>5-Screen Poster Flow</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("simulator")}
+                className={cx(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition",
+                  viewMode === "simulator"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-muted hover:text-fg"
+                )}
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                <span>Interactive Phone</span>
+              </button>
+            </div>
+
             <Button
               variant="secondary"
               size="sm"
@@ -44,14 +87,20 @@ export default function MobilePreview() {
         }
       />
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_420px] items-start">
-        {/* Left: The Interactive Phone Simulator */}
-        <div className="flex justify-center rounded-2xl border border-line bg-gradient-to-b from-subtle/50 to-transparent py-4">
-          <PhoneSimulator />
+      {/* Main View Area */}
+      {viewMode === "poster" ? (
+        <div className="space-y-8">
+          <MultiScreenPoster onSelectScreen={handleSelectPosterScreen} />
         </div>
+      ) : (
+        <div className="grid gap-8 xl:grid-cols-[1fr_420px] items-start">
+          {/* Left: The Interactive Phone Simulator */}
+          <div className="flex justify-center rounded-2xl border border-line bg-gradient-to-b from-subtle/50 to-transparent py-4">
+            <PhoneSimulator defaultScreen={activeScreen} />
+          </div>
 
-        {/* Right: Architectural Explanation of "The Two Halves" */}
-        <div className="space-y-6">
+          {/* Right: Architectural Explanation of The Two Halves */}
+          <div className="space-y-6">
           <Card
             title="The Two Halves of Weather Intelligence"
             description="Closing the gap between atmospheric science and real-world ground decisions."
@@ -124,6 +173,7 @@ export default function MobilePreview() {
           </Card>
         </div>
       </div>
+      )}
     </div>
   );
 }

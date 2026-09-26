@@ -14,75 +14,109 @@ import { cx } from "@/lib/cx";
 interface PhoneSimulatorProps {
   onBackToDesk?: () => void;
   className?: string;
+  defaultScreen?: "home" | "hub" | "overview" | "distribution" | "activities";
 }
 
-export default function PhoneSimulator({ onBackToDesk, className }: PhoneSimulatorProps) {
+export default function PhoneSimulator({
+  onBackToDesk,
+  className,
+  defaultScreen = "home",
+}: PhoneSimulatorProps) {
   const [scale, setScale] = useState<number>(1);
   const [taluka, setTaluka] = useState("pune-plains");
   const [lang, setLang] = useState<"en" | "mr">("en");
+  const [screen, setScreen] = useState<"home" | "hub" | "overview" | "distribution" | "activities">(defaultScreen);
 
   return (
     <div className={cx("flex flex-col items-center justify-center p-2 sm:p-6", className)}>
       {/* Top Simulator Control Bar for Evaluators/Users */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface/80 p-3.5 shadow-sm backdrop-blur-md max-w-xl w-full">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent-soft text-accent">
-            <Smartphone className="h-4 w-4" />
-          </span>
-          <div>
-            <h3 className="text-xs font-bold text-fg">AtmosFusion Mobile Companion</h3>
-            <p className="text-[11px] text-muted">Field Operations & Citizen POV</p>
+      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-line bg-surface/85 p-3.5 shadow-sm backdrop-blur-md max-w-xl w-full">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <Smartphone className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-xs font-bold text-fg">AtmosFusion Mobile Companion</h3>
+              <p className="text-[11px] text-muted">5 Connected Screens · Field & Citizen POV</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Taluka Selector */}
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-subtle px-2 py-1.5 text-xs text-fg">
+              <MapPin className="h-3 w-3 text-accent" />
+              <select
+                value={taluka}
+                onChange={(e) => setTaluka(e.target.value)}
+                className="bg-transparent font-medium outline-none cursor-pointer"
+              >
+                <option value="pune-plains">Pune (Baramati)</option>
+                <option value="pune-ghats">Pune (Mulshi)</option>
+                <option value="nashik-plains">Junnar</option>
+                <option value="mumbai">Mumbai MMR</option>
+              </select>
+            </div>
+
+            {/* Language Switch */}
+            <button
+              type="button"
+              onClick={() => setLang(lang === "en" ? "mr" : "en")}
+              className="flex items-center gap-1 rounded-lg border border-line bg-subtle px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/40 transition"
+            >
+              <Languages className="h-3.5 w-3.5 text-accent" />
+              <span>{lang === "en" ? "मराठी (MR)" : "English (EN)"}</span>
+            </button>
+
+            {/* Scale Toggle */}
+            <button
+              type="button"
+              onClick={() => setScale(scale === 1 ? 0.88 : 1)}
+              className="hidden sm:flex items-center gap-1 rounded-lg border border-line bg-subtle px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/40 transition"
+              title="Toggle Size"
+            >
+              {scale === 1 ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <span>{scale === 1 ? "Compact" : "100%"}</span>
+            </button>
+
+            {/* Back to forecaster desk */}
+            {onBackToDesk && (
+              <button
+                type="button"
+                onClick={onBackToDesk}
+                className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent/90 transition shadow-sm"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Forecaster Desk</span>
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Taluka Selector */}
-          <div className="flex items-center gap-1 rounded-lg border border-line bg-subtle px-2 py-1.5 text-xs text-fg">
-            <MapPin className="h-3 w-3 text-accent" />
-            <select
-              value={taluka}
-              onChange={(e) => setTaluka(e.target.value)}
-              className="bg-transparent font-medium outline-none cursor-pointer"
-            >
-              <option value="pune-plains">Pune (Baramati)</option>
-              <option value="pune-ghats">Pune (Mulshi)</option>
-              <option value="nashik-plains">Junnar</option>
-              <option value="mumbai">Mumbai MMR</option>
-            </select>
-          </div>
-
-          {/* Language Switch */}
-          <button
-            type="button"
-            onClick={() => setLang(lang === "en" ? "mr" : "en")}
-            className="flex items-center gap-1 rounded-lg border border-line bg-subtle px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/40 transition"
-          >
-            <Languages className="h-3.5 w-3.5 text-accent" />
-            <span>{lang === "en" ? "मराठी (MR)" : "English (EN)"}</span>
-          </button>
-
-          {/* Scale Toggle */}
-          <button
-            type="button"
-            onClick={() => setScale(scale === 1 ? 0.88 : 1)}
-            className="hidden sm:flex items-center gap-1 rounded-lg border border-line bg-subtle px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/40 transition"
-            title="Toggle Size"
-          >
-            {scale === 1 ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-            <span>{scale === 1 ? "Compact" : "100%"}</span>
-          </button>
-
-          {/* Back to forecaster desk */}
-          {onBackToDesk && (
+        {/* 5 Screen Selector Pills matching the 5 reference phones */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-line/70">
+          <span className="text-[11px] font-semibold text-muted mr-1">Preview Screen:</span>
+          {[
+            { id: "home", label: "1. Home & AI Suggestion" },
+            { id: "hub", label: "2. Cultivation Hub" },
+            { id: "overview", label: "3. Crop Overview" },
+            { id: "distribution", label: "4. Distribution Matrix" },
+            { id: "activities", label: "5. Land & Activities" },
+          ].map((s) => (
             <button
+              key={s.id}
               type="button"
-              onClick={onBackToDesk}
-              className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent/90 transition shadow-sm"
+              onClick={() => setScreen(s.id as any)}
+              className={cx(
+                "rounded-lg px-2.5 py-1 text-[11px] font-semibold transition",
+                screen === s.id
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-subtle text-muted hover:text-fg hover:bg-surface"
+              )}
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Forecaster Desk</span>
+              {s.label}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -111,9 +145,12 @@ export default function PhoneSimulator({ onBackToDesk, className }: PhoneSimulat
 
             {/* Inner Interactive Mobile Application */}
             <AtmosFusionMobile
+              key={screen}
+              initialScreen={screen}
               initialTaluka={taluka}
               initialLang={lang}
               onBackToDesk={onBackToDesk}
+              onScreenChange={(s) => setScreen(s)}
             />
           </div>
         </div>

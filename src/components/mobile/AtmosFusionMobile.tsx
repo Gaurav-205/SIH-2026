@@ -1,15 +1,11 @@
 import { useState } from "react";
 import {
   CloudRain,
-  Droplets,
   Volume2,
   ChevronRight,
   Home,
   Scan,
-  CheckCircle2,
-  Sparkles,
   ArrowLeft,
-  Share2,
   MapPin,
   MessageSquare,
   Send,
@@ -17,68 +13,84 @@ import {
   Check,
   Bell,
   X,
-  ShieldAlert,
-  Mountain,
-  Sun,
-  Radio,
+  SlidersHorizontal,
+  MoreHorizontal,
+  BarChart3,
+  Crosshair,
+  Sprout,
+  Droplets,
+  Bug,
+  LayoutGrid,
 } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { useCycle, useCycleIndex, useTelemetry } from "@/data/cycle";
 
+export type MobileScreen = "home" | "hub" | "overview" | "distribution" | "activities";
+
 export interface AtmosFusionMobileProps {
+  initialScreen?: MobileScreen;
   initialTaluka?: string;
   initialLang?: "en" | "mr";
   onBackToDesk?: () => void;
+  onScreenChange?: (screen: MobileScreen) => void;
 }
 
 const TALUKAS = [
-  { id: "pune-plains", name: "Baramati / Haveli", district: "Pune Plains", lat: 18.5, lon: 74.4, sector: "Deccan Basin & Agriculture" },
+  { id: "pune-plains", name: "Baramati / Haveli", district: "Pune Plains", lat: 18.5, lon: 74.4, sector: "Deccan Basin & Agromet" },
   { id: "pune-ghats", name: "Lonavala / Mulshi", district: "Pune Ghats", lat: 18.6, lon: 73.7, sector: "Hydro Catchment & Reservoirs" },
   { id: "nashik-plains", name: "Junnar / Narayangaon", district: "Pune North", lat: 19.1, lon: 73.9, sector: "Horticulture & River Basin" },
   { id: "mumbai", name: "Vasai / Palghar", district: "MMR Coastal", lat: 19.05, lon: 72.87, sector: "Coastal Swell & Urban Drainage" },
 ];
 
 export default function AtmosFusionMobile({
+  initialScreen = "home",
   initialTaluka = "pune-plains",
   initialLang = "en",
   onBackToDesk,
+  onScreenChange,
 }: AtmosFusionMobileProps) {
+  const [screen, setScreenState] = useState<MobileScreen>(initialScreen);
   const [lang, setLang] = useState<"en" | "mr">(initialLang);
   const [talukaId, setTalukaId] = useState(initialTaluka);
-  const [activeTab, setActiveTab] = useState<"home" | "sectors" | "radar" | "alerts">("home");
-  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [selectedHub, setSelectedHub] = useState<string>("potato");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [dispatchSuccess, setDispatchSuccess] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [overviewTab, setOverviewTab] = useState<"stats" | "scan">("stats");
 
-  // Daily Operational Protocols checklist
-  const [protocols, setProtocols] = useState([
+  const setScreen = (newScreen: MobileScreen) => {
+    setScreenState(newScreen);
+    onScreenChange?.(newScreen);
+  };
+
+  // Today Activities interactive checklist state (Matching Screen 5 in reference image)
+  const [activities, setActivities] = useState([
     {
       id: 1,
-      textEn: "Verify 13-model blend consensus for 12Z cycle",
-      textMr: "१२झेड सायकलसाठी १३ मॉडेल्सचा ब्लेंड प्रमाणित करा",
+      textEn: "Give water to Tomato at 8:00 AM",
+      textMr: "टोमॅटो पिकास सकाळी ८:०० वा. पाणी द्या",
       done: true,
-      time: "08:00 AM",
+      time: "8:00 AM",
     },
     {
       id: 2,
-      textEn: "Inspect Mulshi & Pavana reservoir catchment runoff index",
-      textMr: "मुळशी व पवना धरण पाणलोट आवक निर्देशांक तपासा",
+      textEn: "Spray Neem oil at 10 AM",
+      textMr: "सकाळी १०:०० वा. कडुनिंब तेल फवारणी करा",
       done: false,
-      time: "01:30 PM",
+      time: "10:00 AM",
     },
     {
       id: 3,
-      textEn: "Validate CAP 1.2 Green alert status for Pune Talukas",
-      textMr: "पुणे तालुक्यांसाठी सीएपी १.२ ग्रीन अलर्ट स्थिती प्रमाणित करा",
+      textEn: "Check soil moisture at 11 AM",
+      textMr: "सकाळी ११:०० वा. मातीतील ओलावा तपासा",
       done: false,
-      time: "04:00 PM",
+      time: "11:00 AM",
     },
   ]);
 
-  const toggleProtocol = (id: number) => {
-    setProtocols((prev) => prev.map((p) => (p.id === id ? { ...p, done: !p.done } : p)));
+  const toggleActivity = (id: number) => {
+    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, done: !a.done } : a)));
   };
 
   // Live forecast data from AtmosFusion backend
@@ -138,538 +150,743 @@ export default function AtmosFusionMobile({
     setDispatchSuccess(
       lang === "mr"
         ? `पुणे व मुंबई विभागातील १,२४० क्षेत्रीय अधिकारी व नागरिकांना अ‍ॅटमॉसफ्युजन सल्ला यशस्वीरित्या प्रसारित केला!`
-        : `Successfully dispatched AtmosFusion advisory to 1,240 field officers & citizens across Maharashtra via WhatsApp & NIC SMS gateway!`
+        : `Successfully dispatched AtmosFusion advisory to 1,240 field units & citizens across Maharashtra via WhatsApp & NIC SMS gateway!`
     );
     setTimeout(() => {
       setDispatchSuccess(null);
     }, 4500);
   };
 
+  // Translations dictionary
   const t = {
-    appName: lang === "mr" ? "अ‍ॅटमॉसफ्युजन" : "AtmosFusion",
-    subName: lang === "mr" ? "१३ मॉडेल्सचा हवामान ब्लेंड" : "13-Model Consensus Intelligence",
+    appName: "AtmosFusion",
     location: currentTaluka.name,
-    todayWeather: lang === "mr" ? "आजचा हवामान ब्लेंड" : "Consensus Weather Blend",
-    aiGuidance: lang === "mr" ? "अ‍ॅटमॉसफ्युजन क्षेत्रीय सल्ला" : "AtmosFusion Field Guidance",
-    sectorHub: lang === "mr" ? "क्षेत्रीय प्रभाव हब" : "Sector Impact Hub",
-    sectorOverview: lang === "mr" ? "क्षेत्रीय स्थिती विश्लेषण" : "Sector Status Overview",
-    dailyProtocols: lang === "mr" ? "दैनंदिन क्षेत्रीय कार्यप्रणाली" : "Today's Operational Protocols",
-    safeWindow: lang === "mr" ? "सुरक्षित कामकाज खिडकी" : "Safe Field Work Window",
-    safeWindowDesc:
-      lang === "mr"
-        ? `दुपारी ४:३० पर्यंत पाऊस नाही (${blendRain.toFixed(1)} मिमी अंदाज). मैदानी कामे व फवारणी सुरक्षित आहे.`
-        : `13-model blend predicts ${blendRain.toFixed(1)} mm rain. 0% wash-out risk until 4:30 PM.`,
-    catchmentTip: lang === "mr" ? "पाणलोट व सिंचन सल्ला" : "Catchment & Irrigation Status",
-    catchmentDesc:
-      lang === "mr"
-        ? `मातीतील ओलावा ${(tel?.surface?.soil_moisture_0_to_1cm ? tel.surface.soil_moisture_0_to_1cm * 100 : 26).toFixed(0)}% पुरेसा आहे. धरणातून पाणी सोडणे किंवा सिंचन करणे पुढे ढकला.`
-        : `Topsoil saturation is ${(tel?.surface?.soil_moisture_0_to_1cm ? tel.surface.soil_moisture_0_to_1cm * 100 : 26).toFixed(0)}% (optimal). Defer extra canal or drip irrigation.`,
-    alertStatus: lang === "mr" ? "सीएपी १.२ पूर्वसूचना स्थिती" : "CAP 1.2 Early Warning Status",
-    alertDesc:
-      lang === "mr"
-        ? "हवामान ग्रीन लेव्हलवर सामान्य आहे. पुढील २४ तासांत कोणत्याही तीव्र वादळाचा इशारा नाही."
-        : "Green alert level. Stable atmospheric regime; no convective severe storm threat.",
-    listenAudio: lang === "mr" ? "सल्ला ऐका" : "Listen Audio",
-    playing: lang === "mr" ? "सल्ला वाचन सुरू..." : "Reading out...",
-    consensusScore: lang === "mr" ? "मॉडेल सहमती: ९४%" : "Model Agreement: 94%",
+    todayWeather: lang === "mr" ? "आजचे हवामान" : "Today's Weather",
+    aiSuggestion: lang === "mr" ? "आजचा एआय सल्ला" : "Today's AI Suggestion",
+    myCultivationHub: lang === "mr" ? "माझे कृषी हब" : "My Cultivation Hub",
+    cropOverview: lang === "mr" ? "बटाटा पीक विहंगावलोकन" : "Potato Crop Overview",
+    overviewStats: lang === "mr" ? "आकडेवारी" : "Overview Stats",
+    scanOverview: lang === "mr" ? "स्कॅन विश्लेषण" : "Scan Overview",
+    cropHarvest: lang === "mr" ? "पीक काढणी अंदाज" : "Crop Harvest",
+    cropHarvestAnalysis: lang === "mr" ? "पीक काढणी विश्लेषण" : "Crop Harvest Analysis",
+    cropDistribution: lang === "mr" ? "पीक वितरण" : "Crop Distribution",
+    totalFarmingLand: lang === "mr" ? "एकूण शेती क्षेत्र" : "Total Farming Land",
+    totalWorker: lang === "mr" ? "एकूण कामगार" : "Total Worker",
+    todayActivities: lang === "mr" ? "आजची कामे" : "Today Activities",
+    addHub: lang === "mr" ? "नवीन हब जोडा" : "ADD CULTIVATION HUB",
+    seeDetails: lang === "mr" ? "तपशील पहा" : "See Details",
+    plantSeeds: lang === "mr" ? "बियाणे पेरा" : "Plant Seeds",
+    plantSeedsDesc: lang === "mr" ? "पेरणीसाठी अनुकूल हवामान" : "Perfect weather for sowing",
+    fertilizePlant: lang === "mr" ? "खते द्या" : "Fertilize Plant",
+    fertilizePlantDesc: lang === "mr" ? "एनपीके-१९ ची शिफारस" : "NPK-19 recommended",
+    checkPest: lang === "mr" ? "कीड तपासा" : "Check Pest",
+    checkPestDesc: lang === "mr" ? "कीड धोका आढळला" : "Pest risk detected",
   };
 
-  const sectors = [
+  // 3 Cultivation Hub items (Screen 2 matching reference image)
+  const hubItems = [
     {
-      id: "catchment",
-      name: lang === "mr" ? "मुळशी व पवना धरण पाणलोट" : "Mulshi & Pavana Catchment",
-      desc: lang === "mr" ? "पाणलोट ओलावा ६८%, आवक स्थिर, पूर धोका नाही" : "Soil saturation 68%, stable reservoir inflow, 0% flood risk",
-      metric: "320 Cusecs",
-      storage: "94% Full",
-      agreement: "High (ECMWF + GFS)",
-      image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop",
-      stage: lang === "mr" ? "पाणलोट आवक स्थिर" : "Normal Inflow Stage",
-      nextWatch: lang === "mr" ? "पुढील २४ तास सामान्य" : "24h Stable",
+      id: "paddy",
+      name: lang === "mr" ? "भात लागवड प्लॉट" : "Paddy Seeding Plot",
+      desc: lang === "mr" ? "पेरणीची अपेक्षित तारीख २० एप्रिल, २०२६." : "Expected sowing date is april 20, 2026.",
+      area: "3.6 ha",
+      activities: "13 Activity",
+      image: "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=600&auto=format&fit=crop",
     },
     {
-      id: "agromet",
-      name: lang === "mr" ? "दख्खन कृषी व फळबागा पट्टा" : "Deccan Agromet & Orchard Zone",
-      desc: lang === "mr" ? "द्राक्ष व उसासाठी अनुकूल कोरडा कालावधी" : "Optimal dry spell for sugarcane & Thomson seedless vineyards",
-      metric: "7.8k Hectares",
-      storage: "91% Health",
-      agreement: "Unanimous (13 Models)",
-      image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&auto=format&fit=crop",
-      stage: lang === "mr" ? "फवारणी अनुकूल" : "Safe Spray Window",
-      nextWatch: lang === "mr" ? "उद्या संध्याकाळपर्यंत" : "Until Tomorrow PM",
+      id: "potato",
+      name: lang === "mr" ? "बटाटा शेती क्षेत्र" : "Potato Field Zone",
+      desc: lang === "mr" ? "उत्तम वाढीसाठी सिंचन शिफारसीय आहे." : "Irrigation is recommended to ensure optimal growth.",
+      area: "1.6 ha",
+      activities: "13 Activity",
+      image: "https://images.unsplash.com/photo-1590682680695-43b964a3ae17?w=600&auto=format&fit=crop",
     },
     {
-      id: "coastal",
-      name: lang === "mr" ? "मुंबई महानगर किनारपट्टी खोरे" : "Mumbai MMR Coastal Basin",
-      desc: lang === "mr" ? "अरबी समुद्र लाटा १.४ मीटर, शहरी पाणी साचण्याचा धोका शून्य" : "Arabian Sea swell 1.4m, 0% urban flash waterlogging probability",
-      metric: "1.4m Swell",
-      storage: "AQI 48 (Good)",
-      agreement: "High (CAMS / IMD)",
-      image: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&auto=format&fit=crop",
-      stage: lang === "mr" ? "सामान्य सागरी स्थिती" : "Moderate Sea State",
-      nextWatch: lang === "mr" ? "भरती दुपारी १२:४०" : "High Tide 12:40",
+      id: "apple",
+      name: lang === "mr" ? "सफरचंद बाग" : "Highland Apple Grove",
+      desc: lang === "mr" ? "सफरचंद तोडणी सुरू करण्यासाठी योग्य वेळ." : "Ideal time to begin harvesting your apples",
+      area: "3.6 ha",
+      activities: "13 Activity",
+      image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&auto=format&fit=crop",
     },
   ];
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#05130d] text-white font-sans select-none">
-      {/* Background Atmospheric Glows */}
-      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 top-40 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#071710] text-white font-sans select-none">
+      {/* Dynamic Ambient Background Gradients */}
+      <div className="pointer-events-none absolute -left-20 -top-20 h-80 w-80 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-40 h-80 w-80 rounded-full bg-lime-500/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-10 left-10 h-72 w-72 rounded-full bg-teal-500/10 blur-3xl" />
 
+      {/* Screen 1: Beautiful Landscape Photo Background when on 'home' screen */}
+      {screen === "home" && (
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          <img
+            src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop"
+            alt="Misty Mountain Background"
+            className="h-full w-full object-cover object-center opacity-65 scale-105 transition-all duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#071710]/40 via-[#071710]/60 to-[#071710] pointer-events-none" />
+        </div>
+      )}
+
       {/* Top Phone Status Bar */}
-      <div className="relative z-20 flex items-center justify-between px-6 pt-3 text-[11px] font-medium text-emerald-100/70">
-        <span>09:54</span>
+      <div className="relative z-20 flex items-center justify-between px-6 pt-3 text-[11px] font-medium text-emerald-100/80">
+        <span>9:54</span>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>5G</span>
-          <div className="h-2.5 w-5 rounded-[3px] border border-emerald-300/60 p-0.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex gap-0.5 items-end h-2.5">
+            <span className="w-0.5 h-1 bg-emerald-300 rounded-sm" />
+            <span className="w-0.5 h-1.5 bg-emerald-300 rounded-sm" />
+            <span className="w-0.5 h-2 bg-emerald-300 rounded-sm" />
+            <span className="w-0.5 h-2.5 bg-emerald-300 rounded-sm" />
+          </div>
+          <div className="h-2.5 w-5 rounded-[3px] border border-emerald-300/70 p-0.5 ml-1">
             <div className="h-full w-3/4 rounded-[1px] bg-emerald-400" />
           </div>
         </div>
       </div>
 
-      {/* App Header */}
-      <div className="relative z-20 flex items-center justify-between px-5 pt-3 pb-2">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <Radio className="h-4 w-4 text-emerald-400 animate-pulse" />
-            <h1 className="text-lg font-bold tracking-tight text-white">{t.appName}</h1>
-            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300 border border-emerald-500/30">
-              13-MODEL
-            </span>
-          </div>
-          <div className="flex items-center gap-1 text-[11px] text-emerald-300/80">
-            <MapPin className="h-3 w-3 text-emerald-400" />
-            <select
-              value={talukaId}
-              onChange={(e) => setTalukaId(e.target.value)}
-              className="bg-transparent font-medium text-emerald-200 outline-none cursor-pointer hover:text-white"
-            >
-              {TALUKAS.map((t) => (
-                <option key={t.id} value={t.id} className="bg-[#071f16] text-white">
-                  {t.name} ({t.district})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Controls: WhatsApp/SMS share, Language toggle & Forecaster desk back button */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowDispatchModal(true)}
-            className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-900/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 backdrop-blur hover:bg-emerald-800/70 transition"
-            title="Dispatch Field Advisory"
-          >
-            <MessageSquare className="h-3 w-3 text-emerald-400" />
-            <span>{lang === "mr" ? "सल्ला पाठवा" : "Dispatch"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setLang(lang === "en" ? "mr" : "en")}
-            className="rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 backdrop-blur hover:bg-emerald-900/60 transition"
-            title="Toggle Marathi / English"
-          >
-            {lang === "en" ? "मराठी" : "ENG"}
-          </button>
-          {onBackToDesk && (
-            <button
-              type="button"
-              onClick={onBackToDesk}
-              className="rounded-full border border-white/20 bg-white/10 p-1.5 text-white/80 hover:bg-white/20 transition"
-              title="Return to Desktop Forecaster Desk"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Scrollable Content */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-5 pb-24 pt-2 space-y-4 scrollbar-none">
-        {/* Weather Hero Card (Glassmorphic Landscape aesthetic matching reference image) */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-emerald-900/50 via-emerald-950/70 to-[#04130d]/80 p-5 shadow-xl backdrop-blur-xl">
-          <div className="flex items-start justify-between">
+      {/* ======================================================== */}
+      {/* SCREEN 1: HOME / WEATHER HERO & TODAY'S AI SUGGESTION    */}
+      {/* ======================================================== */}
+      {screen === "home" && (
+        <div className="relative z-10 flex-1 flex flex-col overflow-y-auto px-5 pb-24 pt-1 space-y-4 scrollbar-none animate-fade-in">
+          {/* Top Bar: Brand, Location, Bell & Profile Avatar */}
+          <div className="flex items-center justify-between pt-1">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-300/80">
-                Saturday · 26 Sep 2026 · 12Z
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-4xl font-extrabold tracking-tight text-white">29°</span>
-                <span className="text-sm font-medium text-emerald-300/70">C</span>
-              </div>
-              <p className="mt-0.5 text-xs font-medium text-emerald-200">
-                {blendRain < 1.0
-                  ? (lang === "mr" ? "कोरडे व स्थिर वातावरण" : "Dry & Stable Atmospheric State")
-                  : (lang === "mr" ? "स्थानिक पावसाच्या सरी" : "Localized Convective Showers")}
-              </p>
-            </div>
-
-            {/* Rain Badge from AtmosFusion 13-Model Blend */}
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 backdrop-blur-md">
-                <CloudRain className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-xs font-semibold text-emerald-300">
-                  {blendRain.toFixed(1)} mm
-                </span>
-              </div>
-              <div className="mt-1.5 text-[10px] text-emerald-300/70">
-                <span>Spread: {p10.toFixed(1)}–{p90.toFixed(1)} mm</span>
+              <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-md">
+                {t.appName}.
+              </h1>
+              <div className="flex items-center gap-1 text-[11px] text-emerald-200/90 font-medium">
+                <MapPin className="h-3 w-3 text-emerald-300" />
+                <select
+                  value={talukaId}
+                  onChange={(e) => setTalukaId(e.target.value)}
+                  className="bg-transparent font-medium text-emerald-200 outline-none cursor-pointer hover:text-white"
+                >
+                  {TALUKAS.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-[#071f16] text-white">
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
 
-          {/* Quick telemetry metrics */}
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-3 text-center">
-            <div className="rounded-lg bg-black/20 p-1.5">
-              <span className="block text-[10px] text-emerald-300/70">
-                {lang === "mr" ? "पाणलोट ओलावा" : "Catchment Sat."}
-              </span>
-              <span className="text-xs font-bold text-white">
-                {tel?.surface?.soil_moisture_0_to_1cm ? `${(tel.surface.soil_moisture_0_to_1cm * 100).toFixed(0)}%` : "26%"}
-              </span>
-            </div>
-            <div className="rounded-lg bg-black/20 p-1.5">
-              <span className="block text-[10px] text-emerald-300/70">
-                {lang === "mr" ? "आर्द्रता" : "Humidity"}
-              </span>
-              <span className="text-xs font-bold text-white">{tel?.surface?.relative_humidity_2m ?? 62}%</span>
-            </div>
-            <div className="rounded-lg bg-black/20 p-1.5">
-              <span className="block text-[10px] text-emerald-300/70">
-                {lang === "mr" ? "हवा गुणवत्ता" : "Air Quality"}
-              </span>
-              <span className="text-xs font-bold text-emerald-300">
-                AQI {tel?.air_quality?.european_aqi ?? 48}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Today's AtmosFusion Field Guidance Card */}
-        <div className="rounded-2xl border border-white/10 bg-emerald-950/40 p-4 shadow-lg backdrop-blur-md">
-          <div className="flex items-center justify-between pb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              <h2 className="text-sm font-bold tracking-tight text-white">{t.aiGuidance}</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleAudioSpeak(`${t.safeWindow}: ${t.safeWindowDesc}`)}
-              className={cx(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
-                isPlayingAudio
-                  ? "border-cyan-400 bg-cyan-400/20 text-cyan-300 animate-pulse"
-                  : "border-emerald-500/30 bg-emerald-900/40 text-emerald-300 hover:bg-emerald-800/40"
-              )}
-            >
-              <Volume2 className="h-3 w-3" />
-              <span>{isPlayingAudio ? t.playing : t.listenAudio}</span>
-            </button>
-          </div>
-
-          <div className="space-y-2.5">
-            {/* Safe Field Work Window */}
-            <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-900/40 to-transparent p-3 hover:border-emerald-400/40 transition cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-lime-500/20 text-lime-300">
-                  <Sun className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-white">{t.safeWindow}</h3>
-                  <p className="text-[11px] text-emerald-200/70">{t.safeWindowDesc}</p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-emerald-400" />
-            </div>
-
-            {/* Catchment & Hydrology Status */}
-            <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-900/40 to-transparent p-3 hover:border-emerald-400/40 transition cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500/20 text-teal-300">
-                  <Droplets className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-white">{t.catchmentTip}</h3>
-                  <p className="text-[11px] text-emerald-200/70">{t.catchmentDesc}</p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-emerald-400" />
-            </div>
-
-            {/* Multi-Hazard Early Warning */}
-            <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-900/40 to-transparent p-3 hover:border-emerald-400/40 transition cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300">
-                  <ShieldAlert className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-white">{t.alertStatus}</h3>
-                  <p className="text-[11px] text-emerald-200/70">{t.alertDesc}</p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-emerald-400" />
-            </div>
-          </div>
-        </div>
-
-        {/* Toast alert when broadcast simulation is triggered */}
-        {dispatchSuccess && (
-          <div className="rounded-xl border border-emerald-400 bg-emerald-950/90 p-3 shadow-xl backdrop-blur animate-fade-in text-xs text-emerald-200 flex items-start gap-2.5">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-white block font-semibold">
-                {lang === "mr" ? "सल्ला प्रसारित झाला!" : "Advisory Dispatched!"}
-              </strong>
-              <p className="mt-0.5 text-[11px] leading-tight text-emerald-300/90">{dispatchSuccess}</p>
-            </div>
-          </div>
-        )}
-
-        {/* AtmosFusion Multi-Channel Dispatch Callout Card */}
-        <div
-          onClick={() => setShowDispatchModal(true)}
-          className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/80 via-[#072418] to-emerald-950/80 p-3.5 shadow-lg backdrop-blur-md cursor-pointer hover:border-emerald-400/60 transition group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:scale-110 transition">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
-                  {lang === "mr" ? "क्षेत्रीय हवामान सल्ला पाठवा" : "Dispatch Field Advisory"}
-                </h3>
-                <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-300">
-                  WhatsApp & SMS
-                </span>
-              </div>
-              <p className="text-[10px] text-emerald-200/70">
-                {lang === "mr"
-                  ? "१३ मॉडेल्सचा अचूक सल्ला क्षेत्रीय अधिकारी व नागरिकांना प्रसारित करा"
-                  : "Broadcast 13-model consensus & CAP alerts to field units"}
-              </p>
-            </div>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition">
-            <Send className="h-3.5 w-3.5" />
-          </div>
-        </div>
-
-        {/* Sector Impact Hub (Matching reference image layout, customized for AtmosFusion) */}
-        <div>
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-sm font-bold tracking-tight text-white">{t.sectorHub}</h2>
-            <span className="text-[11px] font-semibold text-emerald-400">3 Priority Sectors · Maharashtra</span>
-          </div>
-
-          <div className="space-y-3">
-            {sectors.map((sec) => (
-              <div
-                key={sec.id}
-                onClick={() => setSelectedSector(sec.id)}
-                className="group relative flex overflow-hidden rounded-2xl border border-white/10 bg-emerald-950/40 p-2.5 shadow-md backdrop-blur-md hover:border-emerald-400/40 transition cursor-pointer"
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLang(lang === "en" ? "mr" : "en")}
+                className="rounded-full border border-emerald-400/30 bg-emerald-950/60 px-2 py-0.5 text-[10px] font-bold text-emerald-300 backdrop-blur hover:bg-emerald-900/60 transition"
               >
+                {lang === "en" ? "मराठी" : "ENG"}
+              </button>
+              {onBackToDesk && (
+                <button
+                  type="button"
+                  onClick={onBackToDesk}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition"
+                  title="Forecaster Desk"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition shadow-sm"
+                title="Notifications & Alerts"
+              >
+                <Bell className="h-4 w-4 text-emerald-200" />
+              </button>
+              <div className="relative h-8 w-8 rounded-full ring-2 ring-emerald-400/40 overflow-hidden shadow-sm">
                 <img
-                  src={sec.image}
-                  alt={sec.name}
-                  className="h-20 w-20 shrink-0 rounded-xl object-cover transition-transform group-hover:scale-105"
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop"
+                  alt="User Profile"
+                  className="h-full w-full object-cover"
                 />
-                <div className="ml-3 flex flex-1 flex-col justify-between py-0.5">
+              </div>
+            </div>
+          </div>
+
+          {/* Toast Notification when simulated dispatch occurs */}
+          {dispatchSuccess && (
+            <div className="rounded-2xl border border-emerald-400 bg-emerald-950/90 p-3 shadow-xl backdrop-blur animate-fade-in text-xs text-emerald-200 flex items-start gap-2.5">
+              <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block font-semibold">
+                  {lang === "mr" ? "सल्ला प्रसारित झाला!" : "Broadcast Dispatched!"}
+                </strong>
+                <p className="mt-0.5 text-[11px] leading-tight text-emerald-300/90">{dispatchSuccess}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Hero Weather Section (Matching left phone in reference image) */}
+          <div className="pt-6 pb-2">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-semibold text-emerald-100/90 tracking-wide drop-shadow-sm">
+                  Saturday 4 Nov 2025
+                </p>
+                <div className="mt-0.5 flex items-baseline">
+                  <span className="text-5xl font-light tracking-tight text-white drop-shadow-lg">
+                    32
+                  </span>
+                  <span className="text-3xl font-light text-white ml-0.5 drop-shadow-lg">°C</span>
+                </div>
+              </div>
+
+              {/* Rain Showers Badge Card (Glassmorphic pill on right) */}
+              <div className="rounded-2xl border border-white/20 bg-emerald-950/40 p-2.5 shadow-lg backdrop-blur-xl flex flex-col items-center">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-200">
+                  <CloudRain className="h-4 w-4 text-emerald-300" />
+                  <span>Rain Showers 10%</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-emerald-300/80 font-mono">
+                  <span>↑ 21°</span>
+                  <span>↓ 18°</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card: Today's AI Suggestion (Matching reference image) */}
+          <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-4 shadow-xl backdrop-blur-xl">
+            {/* Header with audio waveform button */}
+            <div className="flex items-center justify-between pb-3">
+              <h2 className="text-sm font-bold tracking-tight text-white">{t.aiSuggestion}</h2>
+              <button
+                type="button"
+                onClick={() => handleAudioSpeak(`${t.plantSeeds}: ${t.plantSeedsDesc}. ${t.fertilizePlant}: ${t.fertilizePlantDesc}. ${t.checkPest}: ${t.checkPestDesc}.`)}
+                className={cx(
+                  "flex h-7 w-7 items-center justify-center rounded-full border transition",
+                  isPlayingAudio
+                    ? "border-lime-400 bg-lime-400/20 text-lime-300 animate-pulse"
+                    : "border-emerald-400/30 bg-white/10 text-emerald-300 hover:bg-white/20"
+                )}
+                title="Listen Voice Readout"
+              >
+                <Volume2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* 3 Suggestion Rows */}
+            <div className="space-y-2.5">
+              {/* Row 1: Plant Seeds */}
+              <div
+                onClick={() => setScreen("hub")}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-emerald-400/40 hover:bg-white/10 transition cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-emerald-300 group-hover:scale-105 transition">
+                    <Sprout className="h-5 w-5" />
+                  </div>
                   <div>
                     <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
-                      {sec.name}
+                      {t.plantSeeds}
                     </h3>
-                    <p className="mt-0.5 line-clamp-1 text-[11px] text-emerald-200/70">{sec.desc}</p>
-                  </div>
-                  <div className="flex items-center gap-2 pt-1 text-[10px]">
-                    <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 font-semibold text-emerald-300">
-                      {sec.metric}
-                    </span>
-                    <span className="rounded-md bg-white/10 px-2 py-0.5 text-white/80">
-                      {sec.storage}
-                    </span>
-                    <span className="ml-auto text-emerald-400 font-medium">
-                      {sec.nextWatch}
-                    </span>
+                    <p className="text-[11px] text-emerald-200/70">{t.plantSeedsDesc}</p>
                   </div>
                 </div>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/70 group-hover:bg-emerald-500 group-hover:text-black transition">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Daily Operational Protocols Checklist */}
-        <div className="rounded-2xl border border-white/10 bg-emerald-950/40 p-4 shadow-lg backdrop-blur-md">
-          <div className="flex items-center justify-between pb-2.5">
-            <h2 className="text-sm font-bold tracking-tight text-white">{t.dailyProtocols}</h2>
-            <span className="text-[11px] text-emerald-300">
-              {protocols.filter((p) => p.done).length}/{protocols.length} Verified
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {protocols.map((protocol) => (
+              {/* Row 2: Fertilize Plant */}
               <div
-                key={protocol.id}
-                onClick={() => toggleProtocol(protocol.id)}
-                className="flex items-center justify-between rounded-xl bg-black/20 p-2.5 transition hover:bg-black/30 cursor-pointer"
+                onClick={() => setScreen("overview")}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-emerald-400/40 hover:bg-white/10 transition cursor-pointer group"
               >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={cx(
-                      "flex h-4 w-4 items-center justify-center rounded border transition",
-                      protocol.done
-                        ? "border-emerald-400 bg-emerald-500 text-white"
-                        : "border-white/30 bg-white/5"
-                    )}
-                  >
-                    {protocol.done && <CheckCircle2 className="h-3 w-3" />}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-emerald-300 group-hover:scale-105 transition">
+                    <Droplets className="h-5 w-5" />
                   </div>
-                  <span
-                    className={cx(
-                      "text-xs",
-                      protocol.done ? "text-emerald-300/60 line-through" : "text-white"
-                    )}
-                  >
-                    {lang === "mr" ? protocol.textMr : protocol.textEn}
-                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                      {t.fertilizePlant}
+                    </h3>
+                    <p className="text-[11px] text-emerald-200/70">{t.fertilizePlantDesc}</p>
+                  </div>
                 </div>
-                <span className="text-[10px] text-emerald-400/80">{protocol.time}</span>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/70 group-hover:bg-emerald-500 group-hover:text-black transition">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Floating Bottom Navigation Bar (Glass pill dock like the reference design) */}
-      <div className="absolute bottom-4 left-0 right-0 z-30 flex justify-center px-6">
-        <nav className="flex items-center gap-6 rounded-full border border-white/15 bg-emerald-950/85 px-6 py-2.5 shadow-2xl backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => setActiveTab("home")}
-            className={cx(
-              "flex flex-col items-center gap-0.5 transition",
-              activeTab === "home" ? "text-emerald-400 scale-110" : "text-emerald-100/50 hover:text-emerald-200"
-            )}
-          >
-            <Home className="h-4 w-4" />
-            <span className="text-[9px] font-medium">{lang === "mr" ? "ब्लेंड" : "Consensus"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("sectors")}
-            className={cx(
-              "flex flex-col items-center gap-0.5 transition",
-              activeTab === "sectors" ? "text-emerald-400 scale-110" : "text-emerald-100/50 hover:text-emerald-200"
-            )}
-          >
-            <Mountain className="h-4 w-4" />
-            <span className="text-[9px] font-medium">{lang === "mr" ? "क्षेत्रे" : "Sectors"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("radar")}
-            className={cx(
-              "flex flex-col items-center gap-0.5 transition",
-              activeTab === "radar" ? "text-emerald-400 scale-110" : "text-emerald-100/50 hover:text-emerald-200"
-            )}
-          >
-            <Scan className="h-4 w-4" />
-            <span className="text-[9px] font-medium">{lang === "mr" ? "रडार" : "Radar"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("alerts")}
-            className={cx(
-              "flex flex-col items-center gap-0.5 transition",
-              activeTab === "alerts" ? "text-emerald-400 scale-110" : "text-emerald-100/50 hover:text-emerald-200"
-            )}
-          >
-            <ShieldAlert className="h-4 w-4" />
-            <span className="text-[9px] font-medium">{lang === "mr" ? "इशारे" : "Alerts"}</span>
-          </button>
-        </nav>
-      </div>
-
-      {/* Detail Sector Modal Overlay */}
-      {selectedSector && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-[#04150e]/95 backdrop-blur-xl animate-fade-in p-5">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <button
-              type="button"
-              onClick={() => setSelectedSector(null)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" /> {lang === "mr" ? "मागे जा" : "Back"}
-            </button>
-            <span className="text-xs font-bold text-white">{t.sectorOverview}</span>
-            <Share2
-              onClick={() => setShowDispatchModal(true)}
-              className="h-4 w-4 text-emerald-400 cursor-pointer hover:text-white"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto pt-4 space-y-4">
-            {(() => {
-              const sec = sectors.find((item) => item.id === selectedSector);
-              if (!sec) return null;
-              return (
-                <>
-                  <div className="relative overflow-hidden rounded-2xl border border-white/15 h-44">
-                    <img src={sec.image} alt={sec.name} className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
-                    <div className="absolute bottom-3 left-3">
-                      <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-black uppercase">
-                        {sec.metric}
-                      </span>
-                      <h3 className="mt-1 text-base font-bold text-white">{sec.name}</h3>
-                    </div>
+              {/* Row 3: Check Pest */}
+              <div
+                onClick={() => setScreen("activities")}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-emerald-400/40 hover:bg-white/10 transition cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-emerald-300 group-hover:scale-105 transition">
+                    <Bug className="h-5 w-5" />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-white/10 bg-emerald-950/60 p-3">
-                      <span className="text-[11px] text-emerald-300">
-                        {lang === "mr" ? "सहमती निर्देशांक" : "Model Consensus"}
-                      </span>
-                      <p className="text-xl font-bold text-cyan-400">94%</p>
-                      <p className="text-[10px] text-muted">{sec.agreement}</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-emerald-950/60 p-3">
-                      <span className="text-[11px] text-emerald-300">
-                        {lang === "mr" ? "पावसाचा ब्लेंड" : "24h Rain Blend"}
-                      </span>
-                      <p className="text-xl font-bold text-emerald-300">{blendRain.toFixed(1)} mm</p>
-                      <p className="text-[10px] text-muted">{sec.storage}</p>
-                    </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                      {t.checkPest}
+                    </h3>
+                    <p className="text-[11px] text-emerald-200/70">{t.checkPestDesc}</p>
                   </div>
-
-                  <div className="rounded-xl border border-white/10 bg-emerald-950/60 p-4">
-                    <h4 className="text-xs font-bold text-white mb-2">
-                      {lang === "mr" ? "अ‍ॅटमॉसफ्युजन तज्ज्ञ सल्ला" : "AtmosFusion Multi-Model Synthesis"}
-                    </h4>
-                    <p className="text-xs text-emerald-200/80 leading-relaxed">
-                      {lang === "mr"
-                        ? "ईसीएमडब्ल्यूएफ आणि जीएफएस मॉडेलच्या ब्लेंडनुसार या क्षेत्रात पुढील ७२ तासांत हवामान अनुकूल राहील. आपत्कालीन अलर्ट पातळी ग्रीन असून पाणलोट आवक आणि शेती कामकाज सुरक्षित राहील."
-                        : "Verified against IMD ground truth, the 13-model blend confirms high atmospheric stability across this catchment. Proceed with standard scheduled operational protocols."}
-                    </p>
-                  </div>
-                </>
-              );
-            })()}
+                </div>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/70 group-hover:bg-emerald-500 group-hover:text-black transition">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* AtmosFusion Multi-Channel Dispatch Modal */}
+      {/* ======================================================== */}
+      {/* SCREEN 2: MY CULTIVATION HUB (Top Center in image)       */}
+      {/* ======================================================== */}
+      {screen === "hub" && (
+        <div className="relative z-10 flex-1 flex flex-col overflow-y-auto px-5 pb-24 pt-2 space-y-4 scrollbar-none animate-fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between pt-1">
+            <h1 className="text-lg font-bold tracking-tight text-white">{t.myCultivationHub}</h1>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20 transition"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-emerald-300" />
+            </button>
+          </div>
+
+          {/* 3 Hub Cards (Matching reference image) */}
+          <div className="space-y-3.5 pt-1">
+            {hubItems.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setSelectedHub(item.id);
+                  setScreen("overview");
+                }}
+                className="group relative flex overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-r from-[#0d2a1f]/85 to-[#081912]/80 p-3 shadow-lg backdrop-blur-xl hover:border-emerald-400/50 transition cursor-pointer"
+              >
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="h-22 w-22 shrink-0 rounded-2xl object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="ml-3.5 flex flex-1 flex-col justify-between py-0.5">
+                  <div>
+                    <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition">
+                      {item.name}
+                    </h3>
+                    <p className="mt-1 text-[11px] text-emerald-200/70 line-clamp-2 leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 text-[10px]">
+                    <span className="flex items-center gap-1 rounded-full bg-white/10 border border-white/10 px-2.5 py-0.5 text-emerald-300 font-medium">
+                      📐 {item.area}
+                    </span>
+                    <span className="flex items-center gap-1 rounded-full bg-white/10 border border-white/10 px-2.5 py-0.5 text-white/80 font-medium">
+                      📋 {item.activities}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Cultivation Hub Button (Matching wide button at bottom of Screen 2) */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setScreen("overview")}
+              className="w-full rounded-2xl border border-emerald-500/40 bg-emerald-950/60 py-3.5 text-center text-xs font-bold tracking-wider text-emerald-300 uppercase shadow-lg backdrop-blur-md hover:bg-emerald-900/60 active:scale-[0.98] transition"
+            >
+              {t.addHub}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SCREEN 3: CROP OVERVIEW / HARVEST STATS (Bottom Center)  */}
+      {/* ======================================================== */}
+      {screen === "overview" && (
+        <div className="relative z-10 flex-1 flex flex-col overflow-y-auto px-5 pb-24 pt-2 space-y-4 scrollbar-none animate-fade-in">
+          {/* Header with Back, Title & Options */}
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => setScreen("hub")}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <h1 className="text-sm font-bold text-white tracking-tight">
+              {hubItems.find((h) => h.id === selectedHub)?.name ?? t.cropOverview}
+            </h1>
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Segmented Control: Overview Stats | Scan Overview */}
+          <div className="flex rounded-full border border-white/15 bg-black/40 p-1 backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => setOverviewTab("stats")}
+              className={cx(
+                "flex-1 flex items-center justify-center gap-1.5 rounded-full py-1.5 text-xs font-semibold transition",
+                overviewTab === "stats"
+                  ? "bg-emerald-500/30 text-white border border-emerald-400/40 shadow-sm"
+                  : "text-emerald-200/60 hover:text-white"
+              )}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>{t.overviewStats}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOverviewTab("scan")}
+              className={cx(
+                "flex-1 flex items-center justify-center gap-1.5 rounded-full py-1.5 text-xs font-semibold transition",
+                overviewTab === "scan"
+                  ? "bg-emerald-500/30 text-white border border-emerald-400/40 shadow-sm"
+                  : "text-emerald-200/60 hover:text-white"
+              )}
+            >
+              <Crosshair className="h-3.5 w-3.5" />
+              <span>{t.scanOverview}</span>
+            </button>
+          </div>
+
+          {/* Card: Crop Harvest with Background Texture (Matching Bottom Center Screen) */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-br from-[#123627]/90 via-[#0d2a1e]/90 to-[#071710]/95 p-5 shadow-2xl backdrop-blur-xl">
+            {/* Top row */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-white">{t.cropHarvest}</h2>
+                <div className="mt-3 flex items-baseline">
+                  <span className="text-4xl font-extrabold tracking-tight text-white">326</span>
+                  <span className="text-sm font-medium text-emerald-300 ml-1.5">Tonnes</span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-[11px] font-medium text-emerald-200/80">
+                  Harvesting After
+                </span>
+                <p className="text-xs font-bold text-white">83 Days</p>
+                <div className="mt-2 flex items-center justify-end gap-1.5 text-[10px] text-amber-300">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  <span>Expected Harvest</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pattern graph simulation */}
+            <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-emerald-200/80">
+              <span>Model Blend Rain: {blendRain.toFixed(1)} mm</span>
+              <button
+                type="button"
+                onClick={() => setScreen("distribution")}
+                className="flex items-center gap-1 text-emerald-400 font-semibold hover:underline"
+              >
+                <span>View Distribution</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SCREEN 4: CROP DISTRIBUTION & MATRIX (Top Right in image)*/}
+      {/* ======================================================== */}
+      {screen === "distribution" && (
+        <div className="relative z-10 flex-1 flex flex-col overflow-y-auto px-5 pb-24 pt-2 space-y-4 scrollbar-none animate-fade-in">
+          {/* Top Card: Crop Harvest Analysis hatched chart */}
+          <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-4 shadow-xl backdrop-blur-xl">
+            <h2 className="text-xs font-semibold text-emerald-200/80 mb-2">
+              {t.cropHarvestAnalysis}
+            </h2>
+            {/* Striped diagonal canvas simulation */}
+            <div className="h-20 w-full rounded-2xl border border-white/10 bg-[repeating-linear-gradient(45deg,#0a1f16,#0a1f16_6px,#123828_6px,#123828_12px)] flex items-center justify-center">
+              <span className="text-[11px] font-semibold text-emerald-300/80">
+                13-Model Harvest Growth Curve
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom Card: Crop Distribution with Dot Matrix (Matching Top Right Screen) */}
+          <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-5 shadow-xl backdrop-blur-xl">
+            <div className="flex items-center justify-between pb-4">
+              <h2 className="text-sm font-bold text-white">{t.cropDistribution}</h2>
+              <div className="text-right">
+                <span className="block text-[10px] text-emerald-300/70 uppercase">Total Hectares</span>
+                <span className="text-xs font-bold text-white">65.04</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 items-center">
+              {/* Left: Dot Legend */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  <span className="text-emerald-100/90 font-medium">Cherries</span>
+                  <span className="text-[10px] text-emerald-300/70 ml-auto">07.20 Ha</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-lime-400" />
+                  <span className="text-emerald-100/90 font-medium">Apples</span>
+                  <span className="text-[10px] text-emerald-300/70 ml-auto">22.64 Ha</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
+                  <span className="text-emerald-100/90 font-medium">Mushroom</span>
+                  <span className="text-[10px] text-emerald-300/70 ml-auto">35.20 Ha</span>
+                </div>
+              </div>
+
+              {/* Right: Dot Grid Matrix (Exact 4x10 grid matching reference image) */}
+              <div className="grid grid-cols-8 gap-1.5 p-2 rounded-2xl bg-black/30 border border-white/10">
+                {/* Row 1 */}
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                {/* Row 2 */}
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                {/* Row 3 */}
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                {/* Row 4 */}
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-lime-400" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SCREEN 5: LAND, WORKERS & TODAY ACTIVITIES (Bottom Right)*/}
+      {/* ======================================================== */}
+      {screen === "activities" && (
+        <div className="relative z-10 flex-1 flex flex-col overflow-y-auto px-5 pb-24 pt-2 space-y-4 scrollbar-none animate-fade-in">
+          {/* Header with back and bell button */}
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => setScreen("home")}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDispatchModal(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur hover:bg-white/20 transition"
+            >
+              <Bell className="h-4 w-4 text-emerald-300" />
+            </button>
+          </div>
+
+          {/* Hero Banner: Total Farming Land 26 Ha. & Total Worker */}
+          <div className="flex items-end justify-between pt-2">
+            <div>
+              <p className="text-xs font-medium text-emerald-200/80">{t.totalFarmingLand}</p>
+              <div className="mt-0.5 flex items-baseline">
+                <span className="text-5xl font-extralight tracking-tight text-white">26</span>
+                <span className="text-2xl font-light text-emerald-300 ml-1">Ha.</span>
+              </div>
+            </div>
+
+            {/* Total Worker Card (Matching reference image) */}
+            <div className="rounded-2xl border border-white/15 bg-emerald-950/50 p-2.5 shadow-md backdrop-blur-xl">
+              <span className="block text-[11px] font-medium text-emerald-200/90 mb-1">
+                {t.totalWorker}
+              </span>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-white/90">
+                  ♀ 39%
+                </span>
+                <span className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-white/90">
+                  ♂ 61%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Two Side-by-Side Status Cards (ORGANIC APPLE PLANT & POTATO FIELD ZONE) */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Card 1: ORGANIC APPLE PLANT */}
+            <div
+              onClick={() => setScreen("overview")}
+              className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-3.5 shadow-lg backdrop-blur-xl hover:border-emerald-400/40 transition cursor-pointer"
+            >
+              <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">
+                ORGANIC APPLE PLANT
+              </h3>
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-black/30 p-2 border border-white/10">
+                <span className="h-2.5 w-2.5 rounded-full border-2 border-emerald-400" />
+                <span className="text-[10px] text-emerald-200 font-medium">Harvest 80% Completed</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
+                <span>{t.seeDetails}</span>
+                <ChevronRight className="h-3 w-3" />
+              </div>
+            </div>
+
+            {/* Card 2: POTATO FIELD ZONE */}
+            <div
+              onClick={() => setScreen("overview")}
+              className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-3.5 shadow-lg backdrop-blur-xl hover:border-emerald-400/40 transition cursor-pointer"
+            >
+              <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">
+                POTATO FIELD ZONE
+              </h3>
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-black/30 p-2 border border-white/10">
+                <span className="h-2.5 w-2.5 rounded-full border-2 border-lime-400" />
+                <span className="text-[10px] text-emerald-200 font-medium">Sowing 90% Completed</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
+                <span>{t.seeDetails}</span>
+                <ChevronRight className="h-3 w-3" />
+              </div>
+            </div>
+          </div>
+
+          {/* Today Activities Checklist (Matching Bottom Right Screen) */}
+          <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#0e2a1f]/85 to-[#081b13]/90 p-4 shadow-xl backdrop-blur-xl">
+            <h2 className="text-sm font-bold text-white mb-3">{t.todayActivities}</h2>
+            <div className="space-y-2.5">
+              {activities.map((act) => (
+                <div
+                  key={act.id}
+                  onClick={() => toggleActivity(act.id)}
+                  className="flex items-center gap-3 rounded-2xl bg-black/25 p-2.5 transition hover:bg-black/40 cursor-pointer"
+                >
+                  <div
+                    className={cx(
+                      "flex h-4 w-4 items-center justify-center rounded border transition",
+                      act.done
+                        ? "border-emerald-400 bg-emerald-500 text-white"
+                        : "border-white/40 bg-white/5"
+                    )}
+                  >
+                    {act.done && <Check className="h-3 w-3" />}
+                  </div>
+                  <span
+                    className={cx(
+                      "text-xs transition",
+                      act.done ? "text-emerald-300/60 line-through" : "text-white"
+                    )}
+                  >
+                    {lang === "mr" ? act.textMr : act.textEn}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* FLOATING GLASS PILL DOCK NAVIGATION (Present on all views)*/}
+      {/* ======================================================== */}
+      <div className="absolute bottom-4 left-0 right-0 z-30 flex justify-center px-6">
+        <nav className="flex items-center gap-6 rounded-full border border-white/20 bg-emerald-950/85 px-6 py-2.5 shadow-2xl backdrop-blur-2xl">
+          {/* Dock Icon 1: Home */}
+          <button
+            type="button"
+            onClick={() => setScreen("home")}
+            className={cx(
+              "flex flex-col items-center gap-0.5 transition",
+              screen === "home" ? "text-emerald-400 scale-110 drop-shadow" : "text-white/60 hover:text-white"
+            )}
+            title="Home / Weather Hero"
+          >
+            <Home className="h-4 w-4" />
+          </button>
+
+          {/* Dock Icon 2: Sprout / Hub */}
+          <button
+            type="button"
+            onClick={() => setScreen("hub")}
+            className={cx(
+              "flex flex-col items-center gap-0.5 transition",
+              screen === "hub" ? "text-emerald-400 scale-110 drop-shadow" : "text-white/60 hover:text-white"
+            )}
+            title="My Cultivation Hub"
+          >
+            <Sprout className="h-4 w-4" />
+          </button>
+
+          {/* Dock Icon 3: Scan / Overview & Distribution */}
+          <button
+            type="button"
+            onClick={() => setScreen(screen === "overview" ? "distribution" : "overview")}
+            className={cx(
+              "flex flex-col items-center gap-0.5 transition",
+              screen === "overview" || screen === "distribution"
+                ? "text-emerald-400 scale-110 drop-shadow"
+                : "text-white/60 hover:text-white"
+            )}
+            title="Crop Overview & Distribution Matrix"
+          >
+            <Scan className="h-4 w-4" />
+          </button>
+
+          {/* Dock Icon 4: Grid / Activities */}
+          <button
+            type="button"
+            onClick={() => setScreen("activities")}
+            className={cx(
+              "flex flex-col items-center gap-0.5 transition",
+              screen === "activities"
+                ? "text-emerald-400 scale-110 drop-shadow"
+                : "text-white/60 hover:text-white"
+            )}
+            title="Land & Today Activities"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+        </nav>
+      </div>
+
+      {/* ======================================================== */}
+      {/* ATMOSFUSION MULTI-CHANNEL DISPATCH MODAL                */}
+      {/* ======================================================== */}
       {showDispatchModal && (
         <div className="absolute inset-0 z-50 flex flex-col bg-[#05170f]/95 backdrop-blur-2xl animate-fade-in p-5">
-          {/* Modal Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
@@ -689,7 +906,6 @@ export default function AtmosFusionMobile({
           </div>
 
           <div className="flex-1 overflow-y-auto py-4 space-y-4">
-            {/* Target Details */}
             <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs">
               <div className="flex items-center justify-between text-muted text-[11px]">
                 <span>{lang === "mr" ? "लक्ष्य क्षेत्र" : "Target Sector"}:</span>
@@ -701,7 +917,6 @@ export default function AtmosFusionMobile({
               </div>
             </div>
 
-            {/* Formatted Message Preview */}
             <div>
               <div className="flex items-center justify-between pb-1 text-[11px] text-emerald-300/80">
                 <span>{lang === "mr" ? "संदेश मजकूर पूर्वावलोकन" : "Message Preview (WhatsApp / SMS)"}</span>
@@ -719,7 +934,6 @@ export default function AtmosFusionMobile({
               </div>
             </div>
 
-            {/* Quick Actions */}
             <div className="space-y-2 pt-2">
               <button
                 type="button"
