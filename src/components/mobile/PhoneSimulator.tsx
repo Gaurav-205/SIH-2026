@@ -8,7 +8,7 @@ import {
   Info,
   MapPin,
 } from "lucide-react";
-import KisanMobileApp from "./KisanMobileApp";
+import AtmosFusionMobile from "./AtmosFusionMobile";
 import { cx } from "@/lib/cx";
 
 interface PhoneSimulatorProps {
@@ -30,8 +30,8 @@ export default function PhoneSimulator({ onBackToDesk, className }: PhoneSimulat
             <Smartphone className="h-4 w-4" />
           </span>
           <div>
-            <h3 className="text-xs font-bold text-fg">Kisan Mobile App Simulator</h3>
-            <p className="text-[11px] text-muted">End-user POV (Farmer / Field Officer)</p>
+            <h3 className="text-xs font-bold text-fg">AtmosFusion Mobile Companion</h3>
+            <p className="text-[11px] text-muted">Field Operations & Citizen POV</p>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export default function PhoneSimulator({ onBackToDesk, className }: PhoneSimulat
             </div>
 
             {/* Inner Interactive Mobile Application */}
-            <KisanMobileApp
+            <AtmosFusionMobile
               initialTaluka={taluka}
               initialLang={lang}
               onBackToDesk={onBackToDesk}
@@ -123,7 +123,7 @@ export default function PhoneSimulator({ onBackToDesk, className }: PhoneSimulat
       <div className="mt-8 flex items-center gap-2 text-xs text-muted max-w-md text-center">
         <Info className="h-4 w-4 shrink-0 text-accent" />
         <p>
-          This live phone preview translates AtmosFusion's 13-model physics & AI forecast into plain, crop-specific advice for farmers across Maharashtra.
+          This live phone preview translates AtmosFusion's 13-model physics, AI forecasts, and IMD verification into actionable field operations, watershed telemetry, and citizen alerts across Maharashtra.
         </p>
       </div>
     </div>

@@ -30,7 +30,7 @@ const NAV = [
   { to: "/app/models", label: "Models", icon: Network },
   { to: "/app/alerts", label: "Alerts", icon: Bell, badge: true },
   { to: "/app/verification", label: "Verification", icon: CheckCircle2 },
-  { to: "/app/mobile", label: "Kisan Mobile App", icon: Smartphone },
+  { to: "/app/mobile", label: "AtmosFusion Mobile", icon: Smartphone },
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
@@ -256,7 +256,7 @@ export default function AppShell() {
           </button>
           <p className="text-sm font-semibold text-fg">{title}</p>
 
-          {/* Perspective Switcher: Forecaster Desk vs Kisan Mobile POV */}
+          {/* Perspective Switcher: Forecaster Desk vs AtmosFusion Mobile */}
           <div className="hidden sm:flex items-center rounded-lg border border-line bg-subtle/80 p-0.5 text-xs">
             <Link
               to="/app"
@@ -280,7 +280,7 @@ export default function AppShell() {
               )}
             >
               <Smartphone className="h-3.5 w-3.5" />
-              <span>📱 Kisan Mobile POV</span>
+              <span>📱 AtmosFusion Mobile</span>
             </Link>
           </div>
 

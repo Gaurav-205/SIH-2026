@@ -6,7 +6,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import PhoneSimulator from "@/components/mobile/PhoneSimulator";
-import KisanMobileApp from "@/components/mobile/KisanMobileApp";
+import AtmosFusionMobile from "@/components/mobile/AtmosFusionMobile";
 import { PageHeader, Button, Card } from "@/components/ui";
 
 export default function MobilePreview() {
@@ -15,7 +15,7 @@ export default function MobilePreview() {
   if (fullscreenMobile) {
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <KisanMobileApp onBackToDesk={() => setFullscreenMobile(false)} />
+        <AtmosFusionMobile onBackToDesk={() => setFullscreenMobile(false)} />
       </div>
     );
   }
@@ -23,8 +23,8 @@ export default function MobilePreview() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="End-User Perspective: AtmosKisan Mobile App"
-        description="The 2nd half of the system: Translating multi-model physics and AI into actionable field advisories for farmers in Pune and Maharashtra."
+        title="End-User Perspective: AtmosFusion Mobile"
+        description="The 2nd half of the system: Translating 13-model physics, AI forecasts, and IMD verification into actionable field operations, catchment status, and citizen alerts."
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -54,7 +54,7 @@ export default function MobilePreview() {
         <div className="space-y-6">
           <Card
             title="The Two Halves of Weather Intelligence"
-            description="Closing the gap between atmospheric science and real-world agricultural decisions."
+            description="Closing the gap between atmospheric science and real-world ground decisions."
           >
             <div className="space-y-4">
               {/* Half 1 */}
@@ -63,15 +63,15 @@ export default function MobilePreview() {
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-soft text-accent text-xs font-bold">
                     1
                   </span>
-                  <h4 className="text-xs font-bold text-fg">First Half: Forecaster Command Center</h4>
+                  <h4 className="text-xs font-bold text-fg">First Half: Central Forecaster Operations</h4>
                 </div>
                 <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  For NCMRWF & IMD meteorologists. Gathers 13 global forecasts (ECMWF, GFS, AIFS, GraphCast), computes decaying-average error against IMD gridded observations, and derives optimal inverse-error weights.
+                  For NCMRWF & IMD meteorologists. Ingests 13 global numerical and AI forecasts (ECMWF, GFS, AIFS, GraphCast), computes decaying-average error against IMD gridded observations, and derives optimal consensus weights.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-[10px] text-muted">13 Models</span>
-                  <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-[10px] text-muted">Stage A Ledger</span>
-                  <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-[10px] text-muted">CAP 1.2 Alerts</span>
+                  <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-[10px] text-muted">Stage A Skill Ledger</span>
+                  <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-[10px] text-muted">CAP 1.2 Protocol</span>
                 </div>
               </div>
 
@@ -81,42 +81,43 @@ export default function MobilePreview() {
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500 text-black text-xs font-bold">
                     2
                   </span>
-                  <h4 className="text-xs font-bold text-white">Second Half: Citizen & Farmer POV (AtmosKisan)</h4>
+                  <h4 className="text-xs font-bold text-white">Second Half: Field Operations & Citizen POV (AtmosFusion Mobile)</h4>
                 </div>
                 <p className="mt-1.5 text-xs text-emerald-200/70 leading-relaxed">
-                  For the end-user in the field. Translates numerical millimeters and uncertainty bands into clear, crop-specific dos and don'ts in plain English and Marathi.
+                  For district officers, watershed managers, and citizens. Translates numerical millimeters and ensemble spreads into plain, actionable field directives in English and Marathi.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">Safe Spray Window</span>
-                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">Irrigation Deferral</span>
-                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">मराठी Audio Advisory</span>
+                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">Safe Work Window</span>
+                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">Catchment Telemetry</span>
+                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">मराठी Voice Audio</span>
+                  <span className="rounded bg-emerald-900/40 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">Multi-Channel Dispatch</span>
                 </div>
               </div>
             </div>
           </Card>
 
           {/* Key Value Propositions */}
-          <Card title="Key Farmer Features" description="Powered directly by the live cycle API">
+          <Card title="Key Field Intelligence Features" description="Powered directly by the live cycle API">
             <ul className="space-y-3 text-xs">
               <li className="flex gap-2.5">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" />
                 <div>
-                  <strong className="text-fg">Zero-Washout Spray Window:</strong>
-                  <p className="text-muted">Calculated from the model blend. Tells farmers whether sprayed pesticides will be wasted due to rain.</p>
+                  <strong className="text-fg">Multi-Model Consensus Window:</strong>
+                  <p className="text-muted">Calculated from the 13-model blend. Pinpoints zero-washout periods for agricultural spraying, civil infrastructure, and outdoor transit.</p>
                 </div>
               </li>
               <li className="flex gap-2.5">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" />
                 <div>
-                  <strong className="text-fg">Soil Moisture Saturation Index:</strong>
-                  <p className="text-muted">Prevents over-irrigation during monsoon breaks and protects root health in sugarcane and grapes.</p>
+                  <strong className="text-fg">Catchment & Soil Saturation Index:</strong>
+                  <p className="text-muted">Synthesizes 0–1 cm soil moisture telemetry and reservoir inflow forecasts to guide water management in Mulshi and Pune basins.</p>
                 </div>
               </li>
               <li className="flex gap-2.5">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" />
                 <div>
-                  <strong className="text-fg">Text-to-Speech Voice Readout:</strong>
-                  <p className="text-muted">Enables accessible audio advisories for rural field workers in Marathi and Hindi.</p>
+                  <strong className="text-fg">Multi-Channel Broadcast Dispatch:</strong>
+                  <p className="text-muted">Enables field officers to broadcast instant WhatsApp, SMS, and audio advisories in Marathi and English to 1,240 registered field units.</p>
                 </div>
               </li>
             </ul>
