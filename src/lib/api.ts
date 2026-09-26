@@ -53,7 +53,14 @@ export async function apiRequest<T>(
     throw new ApiError(0, OFFLINE_MESSAGE);
   }
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => null);
+  const text = await res.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // An unparseable success body is a server bug; surface it instead of rendering nothing.
+    if (res.ok) throw new ApiError(res.status, "The server sent data this app could not read (invalid JSON).");
+  }
   if (!res.ok) throw new ApiError(res.status, describe((data as { detail?: unknown } | null)?.detail, res.status));
   return data as T;
 }

@@ -132,10 +132,10 @@ def main() -> None:
         cycle = build_cycle()
         name = f"cycle_{cycle['issue']['init_utc'][:13].replace(':', '').replace('-', '')}.json"
         for target in (out / name, out / "latest.json"):
-            target.write_text(json.dumps(cycle, separators=(",", ":")), encoding="utf-8")
+            target.write_text(json.dumps(cycle, separators=(",", ":"), allow_nan=False), encoding="utf-8")
         log.info("cycle %s: %d forecasts -> %s", cycle["issue"]["init_utc"], len(cycle["forecasts"]), out / name)
     card = build_scorecard()
-    (out / "scorecard.json").write_text(json.dumps(_round(card, 3), separators=(",", ":")), encoding="utf-8")
+    (out / "scorecard.json").write_text(json.dumps(_round(card, 3), separators=(",", ":"), allow_nan=False), encoding="utf-8")
     log.info("scorecard: %d rows", len(card["rows"]))
 
 

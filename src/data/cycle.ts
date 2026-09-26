@@ -148,7 +148,7 @@ export interface Validation {
   sources: string[];
   chosen_stage_b: string;
   scores: ValidationScore[];
-  bootstrap: { lead: number; b: string; diff: number; lo: number; hi: number }[];
+  bootstrap: { lead: number; b: string; metric: "rmse" | "crps"; diff: number; lo: number; hi: number }[];
   brier: { threshold: number; method: string; n: number; events: number; bss_vs_climatology: number | null }[];
   probabilistic: { lead: number; method: string; crps_normal: number | null; quantile_score: number; coverage_10_90: number }[];
   importance: { feature: string; gain_share: number }[];

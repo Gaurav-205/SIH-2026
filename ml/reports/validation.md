@@ -1,6 +1,6 @@
 # Validation report (training period, blocked cross-validation)
 
-Generated 2026-09-26T06:42 UTC · commit `486d70a126` · 2024-01-21 to 2024-12-29 · 29 districts · truth: IMD 0.25° gridded rainfall (final)
+Generated 2026-09-26T07:06 UTC · commit `1df05055ac` · 2024-01-21 to 2024-12-29 · 29 districts · truth: IMD 0.25° gridded rainfall (final)
 
 Every number below is out-of-fold: each month is predicted by models fitted without it and without the 10 days either side. Stage B's tau/lambda and the sigma scale are cross-fitted. The frozen test season (June-September 2025) is not used.
 
@@ -151,37 +151,94 @@ Chosen Stage B variant (lowest validation RMSE): **E4 Stage B**.
 | cma_grapes_global | 9801 | 28.73 | 8.82 | 0.10 | 0.33 | 0.14 | 0.23 | 0.69 | 0.04 | 0.37 |
 
 
-## Stage B vs references: paired 5-day block bootstrap (RMSE difference, mm)
+## Stage B vs references: paired 5-day block bootstrap (difference in RMSE or CRPS, mm)
 
-Negative = Stage B better. An interval that crosses zero is not a demonstrated gain.
+Negative = Stage B better. An interval that crosses zero is not a demonstrated gain. Single sources are compared on their own days; 'best source' is the least favourable of those comparisons.
 
-| lead | b | diff | lo | hi |
-|:---|---:|---:|---:|---:|
-| 1 | E3 Stage A | -0.17 | -0.46 | 0.08 |
-| 1 | E2 static MME | -0.99 | -1.89 | -0.18 |
-| 1 | E1 equal mean | -0.69 | -1.35 | -0.11 |
-| 1 | B-alt stacking (mean) | -0.34 | -1.00 | 0.19 |
-| 1 | best source (gefs_ens) | -1.26 | -2.14 | -0.45 |
-| 2 | E3 Stage A | -0.19 | -0.53 | 0.06 |
-| 2 | E2 static MME | -0.56 | -1.45 | 0.20 |
-| 2 | E1 equal mean | -0.76 | -1.35 | -0.20 |
-| 2 | B-alt stacking (mean) | -0.27 | -0.84 | 0.22 |
-| 2 | best source (gefs_ens) | -1.60 | -2.44 | -0.82 |
-| 3 | E3 Stage A | -0.22 | -0.43 | -0.02 |
-| 3 | E2 static MME | -2.19 | -4.55 | -0.19 |
-| 3 | E1 equal mean | -0.67 | -1.26 | -0.08 |
-| 3 | B-alt stacking (mean) | -0.30 | -0.77 | 0.09 |
-| 3 | best source (gefs_ens) | -1.66 | -2.51 | -0.85 |
-| 4 | E3 Stage A | -0.21 | -0.48 | 0.03 |
-| 4 | E2 static MME | -1.49 | -2.33 | -0.65 |
-| 4 | E1 equal mean | -0.82 | -1.42 | -0.30 |
-| 4 | B-alt stacking (mean) | -0.41 | -0.87 | 0.04 |
-| 4 | best source (gefs_ens) | -1.42 | -2.29 | -0.60 |
-| 5 | E3 Stage A | -0.30 | -0.63 | 0.04 |
-| 5 | E2 static MME | -1.47 | -2.93 | -0.21 |
-| 5 | E1 equal mean | -0.87 | -1.40 | -0.40 |
-| 5 | B-alt stacking (mean) | -0.22 | -0.62 | 0.20 |
-| 5 | best source (gefs_ens) | -1.34 | -2.07 | -0.67 |
+| lead | b | metric | diff | lo | hi |
+|:---|---:|---:|---:|---:|---:|
+| 1 | E3 Stage A | rmse | -0.17 | -0.46 | 0.08 |
+| 1 | E2 static MME | rmse | -0.99 | -1.89 | -0.18 |
+| 1 | E1 equal mean | rmse | -0.69 | -1.35 | -0.11 |
+| 1 | B-alt stacking (mean) | rmse | -0.34 | -1.00 | 0.19 |
+| 1 | source bom_access_global | rmse | -8.35 | -14.07 | -3.88 |
+| 1 | source cma_grapes_global | rmse | -3.68 | -5.17 | -2.35 |
+| 1 | source ecmwf_aifs025_single | rmse | 0.06 | -0.81 | 1.10 |
+| 1 | source ecmwf_ifs025 | rmse | -1.74 | -2.33 | -1.15 |
+| 1 | source gefs_ens | rmse | -1.26 | -2.14 | -0.45 |
+| 1 | source gem_global | rmse | -4.08 | -5.06 | -3.11 |
+| 1 | source gfs_global | rmse | -3.31 | -4.75 | -1.95 |
+| 1 | source icon_global | rmse | -3.31 | -4.89 | -2.04 |
+| 1 | source jma_gsm | rmse | -2.65 | -3.54 | -1.78 |
+| 1 | source meteofrance_arpege_world | rmse | -3.16 | -4.09 | -2.28 |
+| 1 | source ukmo_global_deterministic_10km | rmse | -5.50 | -8.14 | -3.24 |
+| 1 | best source (ecmwf_aifs025_single) | rmse | 0.06 | -0.81 | 1.10 |
+| 1 | E3 Stage A (CRPS) | crps | -0.36 | -0.47 | -0.27 |
+| 2 | E3 Stage A | rmse | -0.19 | -0.53 | 0.06 |
+| 2 | E2 static MME | rmse | -0.56 | -1.45 | 0.20 |
+| 2 | E1 equal mean | rmse | -0.76 | -1.35 | -0.20 |
+| 2 | B-alt stacking (mean) | rmse | -0.27 | -0.84 | 0.22 |
+| 2 | source bom_access_global | rmse | -13.03 | -21.67 | -5.17 |
+| 2 | source cma_grapes_global | rmse | -3.62 | -5.13 | -2.30 |
+| 2 | source ecmwf_aifs025_single | rmse | 0.01 | -0.65 | 0.60 |
+| 2 | source ecmwf_ifs025 | rmse | -2.06 | -2.81 | -1.34 |
+| 2 | source gefs_ens | rmse | -1.60 | -2.44 | -0.82 |
+| 2 | source gem_global | rmse | -4.15 | -5.24 | -3.07 |
+| 2 | source gfs_global | rmse | -4.34 | -6.68 | -2.47 |
+| 2 | source icon_global | rmse | -3.12 | -4.55 | -1.72 |
+| 2 | source jma_gsm | rmse | -2.28 | -3.14 | -1.41 |
+| 2 | source meteofrance_arpege_world | rmse | -3.02 | -4.19 | -1.91 |
+| 2 | source ukmo_global_deterministic_10km | rmse | -3.56 | -6.20 | -1.21 |
+| 2 | best source (ecmwf_aifs025_single) | rmse | 0.01 | -0.65 | 0.60 |
+| 2 | E3 Stage A (CRPS) | crps | -0.35 | -0.44 | -0.26 |
+| 3 | E3 Stage A | rmse | -0.22 | -0.43 | -0.02 |
+| 3 | E2 static MME | rmse | -2.19 | -4.55 | -0.19 |
+| 3 | E1 equal mean | rmse | -0.67 | -1.26 | -0.08 |
+| 3 | B-alt stacking (mean) | rmse | -0.30 | -0.77 | 0.09 |
+| 3 | source bom_access_global | rmse | -10.87 | -19.35 | -4.05 |
+| 3 | source cma_grapes_global | rmse | -4.81 | -8.13 | -2.33 |
+| 3 | source ecmwf_aifs025_single | rmse | -0.05 | -0.50 | 0.39 |
+| 3 | source ecmwf_ifs025 | rmse | -3.51 | -4.86 | -2.29 |
+| 3 | source gefs_ens | rmse | -1.66 | -2.51 | -0.85 |
+| 3 | source gem_global | rmse | -3.77 | -5.11 | -2.59 |
+| 3 | source gfs_global | rmse | -3.94 | -5.66 | -2.44 |
+| 3 | source icon_global | rmse | -3.51 | -5.08 | -1.96 |
+| 3 | source jma_gsm | rmse | -2.15 | -3.17 | -1.09 |
+| 3 | source meteofrance_arpege_world | rmse | -2.73 | -3.82 | -1.62 |
+| 3 | best source (ecmwf_aifs025_single) | rmse | -0.05 | -0.50 | 0.39 |
+| 3 | E3 Stage A (CRPS) | crps | -0.41 | -0.51 | -0.31 |
+| 4 | E3 Stage A | rmse | -0.21 | -0.48 | 0.03 |
+| 4 | E2 static MME | rmse | -1.49 | -2.33 | -0.65 |
+| 4 | E1 equal mean | rmse | -0.82 | -1.42 | -0.30 |
+| 4 | B-alt stacking (mean) | rmse | -0.41 | -0.87 | 0.04 |
+| 4 | source bom_access_global | rmse | -10.72 | -18.90 | -4.41 |
+| 4 | source cma_grapes_global | rmse | -7.71 | -13.79 | -2.39 |
+| 4 | source ecmwf_aifs025_single | rmse | -0.13 | -0.60 | 0.38 |
+| 4 | source ecmwf_ifs025 | rmse | -2.47 | -3.35 | -1.69 |
+| 4 | source gefs_ens | rmse | -1.42 | -2.29 | -0.60 |
+| 4 | source gem_global | rmse | -3.89 | -4.80 | -2.98 |
+| 4 | source gfs_global | rmse | -4.22 | -7.35 | -2.02 |
+| 4 | source icon_global | rmse | -4.09 | -5.63 | -2.61 |
+| 4 | source jma_gsm | rmse | -2.26 | -3.16 | -1.37 |
+| 4 | source ukmo_global_deterministic_10km | rmse | -4.19 | -6.26 | -1.86 |
+| 4 | best source (ecmwf_aifs025_single) | rmse | -0.13 | -0.60 | 0.38 |
+| 4 | E3 Stage A (CRPS) | crps | -0.44 | -0.56 | -0.33 |
+| 5 | E3 Stage A | rmse | -0.30 | -0.63 | 0.04 |
+| 5 | E2 static MME | rmse | -1.47 | -2.93 | -0.21 |
+| 5 | E1 equal mean | rmse | -0.87 | -1.40 | -0.40 |
+| 5 | B-alt stacking (mean) | rmse | -0.22 | -0.62 | 0.20 |
+| 5 | source bom_access_global | rmse | -7.69 | -12.40 | -3.86 |
+| 5 | source cma_grapes_global | rmse | -13.96 | -26.72 | -2.47 |
+| 5 | source ecmwf_aifs025_single | rmse | 0.23 | -0.33 | 0.87 |
+| 5 | source ecmwf_ifs025 | rmse | -2.85 | -4.17 | -1.78 |
+| 5 | source gefs_ens | rmse | -1.34 | -2.07 | -0.67 |
+| 5 | source gem_global | rmse | -4.02 | -5.41 | -2.88 |
+| 5 | source gfs_global | rmse | -4.82 | -6.51 | -3.17 |
+| 5 | source icon_global | rmse | -4.29 | -5.97 | -2.75 |
+| 5 | source jma_gsm | rmse | -2.10 | -3.04 | -1.31 |
+| 5 | source ukmo_global_deterministic_10km | rmse | -6.73 | -9.33 | -3.72 |
+| 5 | best source (ecmwf_aifs025_single) | rmse | 0.23 | -0.33 | 0.87 |
+| 5 | E3 Stage A (CRPS) | crps | -0.47 | -0.60 | -0.34 |
 
 
 ## Probabilistic scores

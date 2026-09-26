@@ -62,3 +62,15 @@ def test_relative_economic_value_bounds():
     assert np.allclose(perfect, 1.0)
     clim = scores.relative_economic_value(np.full(10, y.mean()), y, np.array([0.1, 0.5]))
     assert np.all(clim <= 1e-12)
+
+
+def test_exported_json_is_strict(tmp_path):
+    """Browsers reject NaN/Infinity in JSON; every export must be strict."""
+    import json
+
+    from ml.common import write_json
+
+    f = tmp_path / "x.json"
+    write_json(f, {"a": float("nan"), "b": [np.float32(1.5), np.inf, np.int64(3)], "c": {"d": -np.inf}})
+    assert json.loads(f.read_text(), parse_constant=lambda c: pytest.fail(f"non-strict token {c}")) == {
+        "a": None, "b": [1.5, None, 3], "c": {"d": None}}

@@ -18,13 +18,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import logging
 
 import numpy as np
 import pandas as pd
 
-from ml.common import config, path
+from ml.common import config, path, write_json
 from ml.evaluate import scores
 from ml.evaluate.validation import normal_prob, score_block, stage_a_frame
 from ml.features import build_table
@@ -56,11 +55,14 @@ def record_run(log_file, frozen_id: str, rescore: str | None) -> None:
 
 def coverage(df: pd.DataFrame, start, end) -> dict:
     days = pd.date_range(start, end, freq="D")
-    n_points = df["point_id"].nunique() or 1
+    from ml.common import points
+
+    n_points = len(points())
     want = len(days) * n_points
-    per_source = df[df["lead"] == 1].groupby("source").apply(lambda g: g[["point_id", "date"]].drop_duplicates().shape[0] / want)
+    lead1 = df[df["lead"] == 1]
+    days_per_source = lead1.drop_duplicates(["source", "point_id", "date"])["source"].value_counts()
     truth = df.drop_duplicates(["point_id", "date"])["obs"].notna().sum() / want
-    return {"truth": float(truth), "sources": {k: float(v) for k, v in per_source.items()}}
+    return {"truth": float(truth), "sources": {str(k): int(v) / want for k, v in days_per_source.items()}}
 
 
 def static_mme_fit_predict(train: pd.DataFrame, test: pd.DataFrame) -> pd.Series:
@@ -202,7 +204,7 @@ def main() -> None:
         "brier": brier, "reliability": rel, "economic_value": rev, "crps": crps, "case_studies": cases,
         "not_computed": {"fractions_skill_score": "needs gridded fields; district points only"},
     }
-    out_json.write_text(json.dumps(result, indent=1, default=str), encoding="utf-8")
+    write_json(out_json, result, indent=1)
     log.info("test scorecard written: %s", out_json)
 
 

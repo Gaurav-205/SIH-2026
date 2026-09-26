@@ -136,3 +136,13 @@ def test_test_scorecard_refuses_a_second_look(tmp_path):
     with pytest.raises(NotReady):
         check_guard(out, log_file, None)
     check_guard(out, log_file, "IMD revised the 2025 grids")  # allowed only with a recorded reason
+
+
+def test_test_coverage_handles_an_empty_season():
+    import pandas as pd
+
+    from ml.evaluate.test_scorecard import coverage
+
+    empty = pd.DataFrame(columns=["point_id", "date", "source", "lead", "obs"])
+    cov = coverage(empty, "2025-06-01", "2025-09-30")
+    assert cov == {"truth": 0.0, "sources": {}}

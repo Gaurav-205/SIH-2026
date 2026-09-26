@@ -95,3 +95,30 @@ def date_chunks(start: dt.date, end: dt.date, days: int) -> list[tuple[dt.date, 
         out.append((cur, stop))
         cur = stop + dt.timedelta(days=1)
     return out
+
+
+def to_json_safe(obj: Any) -> Any:
+    """Recursively convert NaN/inf to None and NumPy scalars to Python, so the output is strict JSON."""
+    import math
+
+    import numpy as np
+
+    if isinstance(obj, dict):
+        return {str(k): to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [to_json_safe(v) for v in obj]
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, float | np.floating):
+        f = float(obj)
+        return None if math.isnan(f) or math.isinf(f) else f
+    if isinstance(obj, dt.date):
+        return obj.isoformat()
+    return obj
+
+
+def write_json(file: Path, obj: Any, indent: int | None = None) -> None:
+    """Write strict JSON (browsers reject NaN/Infinity); raises if anything non-finite slips through."""
+    import json
+
+    file.write_text(json.dumps(to_json_safe(obj), indent=indent, allow_nan=False, default=str), encoding="utf-8")

@@ -1,56 +1,69 @@
 # AtmosFusion — Hybrid AI–NWP Multi-Model Forecast Blending
 
 > **SIH26081 · NCMRWF, Ministry of Earth Sciences**
-> Blends 13 live global forecasts (physics, AI and ensemble) for 29 districts in Konkan & Goa and Kerala. Each model is weighted by its recent, verified skill against IMD observations at that place.
+> Blends physics, AI and ensemble forecasts for 29 districts in Konkan & Goa and Kerala. Each model is weighted by how well it has recently verified against IMD observations at that place and lead time.
 
-Every number in the app comes from a live API or a published dataset. Nothing is hardcoded or simulated. If the pipeline has not been run yet, the dashboard says so and does not show placeholder data.
+Every number in the app and in this README comes from code run on real data: live APIs and published datasets. Nothing is hardcoded or simulated. Full documentation is in **[docs/](docs/README.md)**.
 
 ---
 
-## Data sources
+## Data
 
 | What | Source | Used for |
 | :--- | :--- | :--- |
-| Live forecasts (latest run, days 1–5) | [Open-Meteo Forecast API](https://open-meteo.com/en/docs): ECMWF IFS 0.25° and 9 km, ECMWF AIFS, NCEP GFS, NCEP AIGFS, NCEP HGEFS mean, DWD ICON, JMA GSM, CMA GRAPES, ECCC GEM, Météo-France ARPEGE, BOM ACCESS-G, UKMO 10 km | Today's blend, alerts, maps |
-| Archived forecasts (what each model predicted at each lead time) | [Open-Meteo Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api) | Skill ledger (weights) and the hindcast scorecard |
-| Model run times | Open-Meteo `static/meta.json` per model | Which run is live, and the valid dates |
-| Rainfall truth | IMD 0.25° gridded rainfall ([imdlib](https://pypi.org/project/imdlib/)): final grids for 2024–2025, real-time grids from 2026 | Verification, skill weights |
-| Max-temperature truth | IMD 1° gridded Tmax (final + real-time) | Tmax skill |
-| Wind truth | ERA5 via the Open-Meteo archive | Wind skill |
+| Live forecasts, days 1–5 | [Open-Meteo](https://open-meteo.com/en/docs): ECMWF IFS & AIFS, NCEP GFS/AIGFS/HGEFS, DWD ICON, JMA, CMA, ECCC, Météo-France, UKMO | today's blend, alerts, maps |
+| Archived forecasts | [Open-Meteo Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api) | skill ledger, training, verification |
+| ECMWF AIFS 2024 + NOAA GEFS 31 members | [dynamical.org](https://dynamical.org/catalog/) cloud Zarr (anonymous) | an AI model in the 2024 training year; ensemble spread |
+| Rain / Tmax truth | IMD 0.25° / 1° gridded data (final and real-time) | every score and every skill weight |
+| Climatology | IMD 1991–2020 normal (30 years) | Brier-skill reference, extreme-rain features, monsoon regimes |
+| Terrain | Copernicus DEM GLO-90, Natural Earth coastline | slope, windward index, distance to coast, terrain class |
 
-Licences: Open-Meteo data is CC BY 4.0 (free tier, non-commercial). IMD data belongs to the India Meteorological Department, Pune. Both are credited in the app.
+Licences, coverage and verification dates for each dataset: [docs/data-sources.md](docs/data-sources.md).
 
-## How the blend works (Stage A)
+## Method
 
-For each district, variable and lead day:
+- **Stage A:** a bias-corrected, inverse-error blend with no fitted parameters. It uses each model's
+  decayed recent error at the district and lead, computed only from forecasts verified before the
+  forecast was issued. **This is what the website serves today.**
+- **Stage B:** a LightGBM gating model that predicts each model's error from its forecast, the consensus,
+  its skill record, place, season, regime and lead, and turns those predictions into weights.
+- **Baselines:** each model alone, the equal-weight mean, a static MME (IMD-style ridge regression), and
+  LightGBM stacking. Ablations remove one factor at a time.
 
-1. **Skill ledger.** The ledger compares each model's archived forecasts with IMD truth. Only pairs verified before the forecast was issued are used (`as_of = valid date − lead`), so there is no look-ahead. Errors are decay-weighted (half-life 20 days) over a 90-day window. Each model needs at least 10 pairs; otherwise the district falls back to regional pooling, and then to equal weights.
-2. **Bias correction.** Rain uses a multiplicative ratio clipped to 0.4–2.5. Tmax and wind use an additive correction.
-3. **Weights.** wₘ ∝ (MAEₘ + 0.1)⁻², normalised so Σwₘ = 1.
-4. **Uncertainty.** σ² = weighted model spread² + Σ wₘ (1.2533 · MAEₘ)². P10/P90 and the probabilities of exceeding 64.5, 115.6 and 204.5 mm come from a normal distribution with that σ.
-5. **Alerts.** Yellow, Orange and Red levels follow IMD heavy-rain categories. Each alert records the reasons the blend gave (see `ml/config.yaml → alerts`).
+Details: [docs/methodology.md](docs/methodology.md).
 
-Every constant is in [ml/config.yaml](ml/config.yaml).
+## Results so far (validation, 2024, 29 districts, against IMD rain)
 
-## Verification scorecard (real hindcast, lead day 1)
+These are out-of-fold results: each month is predicted by models trained without it and without the 10
+days either side. The full report is [ml/reports/validation.md](ml/reports/validation.md), and the
+website's Verification page shows the same numbers.
 
-This is a leakage-free Stage A hindcast against IMD 0.25° gridded rain for 2024, covering 29 districts. From `ml/exports/scorecard.json`, the RMSE figures use a 95% block-bootstrap confidence interval (5-day blocks). ETS, POD and FAR use the 64.5 mm heavy-rain threshold.
+| Day-1 rain | RMSE (mm) | ETS ≥ 64.5 mm |
+| :--- | ---: | ---: |
+| **Stage B** | **13.28** | 0.29 |
+| Stage A | 13.45 | 0.31 |
+| LightGBM stacking (B-alt) | 13.61 | 0.12 |
+| Equal-weight mean | 13.97 | 0.09 |
+| Static MME (IMD style) | 14.26 | 0.32 |
 
-| System | n | RMSE (mm) | 95% CI | ETS | POD | FAR |
-| :--- | ---: | ---: | :---: | ---: | ---: | ---: |
-| **AtmosFusion (Stage A)** | 9,976 | **13.9** | 12.0–16.2 | **0.28** | **0.39** | 0.45 |
-| Equal-weight mean | 9,976 | 14.4 | 11.6–16.9 | 0.07 | 0.08 | 0.40 |
-| ECMWF IFS 0.25° | 9,541 | 15.3 | 12.5–17.8 | 0.15 | 0.18 | 0.48 |
-| JMA GSM | 7,917 | 16.5 | 13.3–19.5 | 0.13 | 0.16 | 0.52 |
-| CMA GRAPES | 9,976 | 17.0 | 14.1–20.1 | 0.11 | 0.17 | 0.70 |
-| NCEP GFS | 7,337 | 17.7 | 14.2–21.1 | 0.19 | 0.25 | 0.51 |
+What the paired 5-day block bootstrap (95% intervals) says:
 
-Caveats:
-- The RMSE confidence intervals overlap, so the RMSE gain is not yet significant. The heavy-rain gain (ETS 0.28 vs 0.07 for the flat average) is the clearer result.
-- The held-out test period (monsoon 2025, frozen in `config.yaml`) will be scored once the archive backfill reaches it.
-- Models with fewer pairs (for example, UKMO 10 km) have archives that start later.
+- **Wins:**
+  - Stage B beats every physics model at day 1 (by 1.7–8.4 mm RMSE), the equal mean (−0.69 mm) and
+    the static MME (−0.99 mm).
+  - Its **probabilistic forecast is clearly better than Stage A's at every lead**: CRPS is lower by
+    0.36–0.47 mm, and Brier skill for ≥ 64.5 mm is 0.14 vs 0.10 against climatology.
+- **Not yet significant:** Stage B vs Stage A on RMSE (−0.17 mm, interval −0.46 to +0.08). Stage B vs
+  **ECMWF AIFS alone**, which on its own days is statistically tied with the blend (+0.06 mm, interval
+  −0.81 to +1.10).
+- **Losses:**
+  - Heavy-rain ETS: Stage B 0.29 vs Stage A 0.31; the static MME has the best ETS but the worst RMSE.
+  - Regime, place and season features add no measurable skill yet (ablations E5–E8).
+  - Removing AI sources is the costliest ablation (+0.27 mm), so the hybrid pool matters.
 
-The Verification page shows all models and lead days.
+**The held-out test (June–September 2025) has not been scored yet.** The model is frozen
+(`ml/artifacts/stage_b/`), and the test runs once the archive backfill reaches 2025. Stage A stays
+live until then ([decision 0008](docs/decisions/0008-stage-a-live-until-test.md)).
 
 ---
 
@@ -63,106 +76,48 @@ Landing (/) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
    └─► Explore the demo (no account) ────────────────►├─ Forecast      region view by lead day
                                                       ├─ Models        weights, skill, and the reasons behind them
                                                       ├─ Alerts        acknowledge, CAP 1.2 export
-                                                      ├─ Verification  hindcast scorecard vs IMD
+                                                      ├─ Verification  live scorecard + model development (E0–E10)
                                                       └─ Settings      profile, preferences, theme, password, delete
 ```
-
-- **Accounts** are stored in SQLite. Passwords are hashed with PBKDF2-SHA256, and access tokens are HS256 and last 7 days. Login attempts are throttled.
-- **The demo** shows the same live data without an account. Its settings and acknowledgements stay in the browser. The backend must be running.
-
----
 
 ## Quickstart (Windows; run from the repository root)
 
 **Prerequisites:** Node.js 20.19+ and Python 3.11.
 
 ```bash
-python -m venv ml/.venv
-ml/.venv/Scripts/python.exe -m pip install -r ml/requirements.lock
-python -m venv backend/.venv
-backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+python -m venv ml/.venv && ml/.venv/Scripts/python.exe -m pip install -r ml/requirements.lock
+python -m venv backend/.venv && backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
 npm install
 ```
 
-**1. Produce data.** Do this once, then daily:
+**Produce data** (see [docs/pipeline.md](docs/pipeline.md) for every step):
 
 ```bash
-ml/.venv/Scripts/python.exe -m ml.ingest.openmeteo --run   # archive backfill; stops at the daily budget, re-run next day
-ml/.venv/Scripts/python.exe -m ml.daily.run_cycle          # live forecasts + IMD update + blend → ml/exports/
+ml/.venv/Scripts/python.exe -m ml.ingest.openmeteo --run      # archive backfill (stops at the free-tier budget; re-run daily)
+ml/.venv/Scripts/python.exe -m ml.ingest.zarr_archive --run   # AIFS + GEFS from cloud Zarr
+ml/.venv/Scripts/python.exe -m ml.daily.run_cycle             # live forecasts + IMD update + blend → ml/exports/
 ```
 
-**2. Serve it:**
+**Serve it:**
 
 ```bash
 cd backend && .venv/Scripts/python.exe -m uvicorn main:app --port 8000
 npm run dev
 ```
 
-Open http://localhost:5173.
+Then open http://localhost:5173.
 
-The pipeline details are in [ml/README.md](ml/README.md).
-
-### Configuration
-
-| Variable | Where | Purpose |
-| :--- | :--- | :--- |
-| `VITE_API_URL` | frontend `.env` | Backend URL (default `http://localhost:8000`) |
-| `ATMOSFUSION_EXPORTS` | backend env | Folder with the pipeline's exports (default `ml/exports`) |
-| `ATMOSFUSION_SECRET` | backend env | Token signing key. If unset, a key is generated once and stored in the database. **Set this in production.** |
-| `ATMOSFUSION_DB` | backend env | SQLite file (default `backend/atmosfusion.db`) |
-| `ATMOSFUSION_TOKEN_TTL` | backend env | Session length in seconds (default: 7 days) |
-| `ATMOSFUSION_CORS_ORIGINS` | backend env | Comma-separated list of allowed frontend origins |
-
-### Tests
+**Checks (same as CI):**
 
 ```bash
-ml/.venv/Scripts/python.exe -m pytest ml/tests -q
+npm run lint && npm run typecheck && npm run build
+ml/.venv/Scripts/ruff.exe check ml backend && ml/.venv/Scripts/python.exe -m pytest ml/tests -q
 cd backend && .venv/Scripts/python.exe -m pytest -q
-npx tsc -b && npx eslint . && npm run build
 ```
 
-- **ML (25 tests):** daily aggregation and IMD day alignment, the rate-limit budget, and ledger leakage (no truth after the issue time). They also check that weights sum to 1 and that fallback and alert rules work.
-- **Backend (14 tests):** the full account flow and the data endpoints, including the 503 response before the pipeline has run.
+## Documentation
 
----
-
-## API
-
-| Method | Path | Auth | Purpose |
-| :--- | :--- | :---: | :--- |
-| GET | `/api/v1/health` | | Service status and the latest cycle |
-| GET | `/api/v1/cycles` | | Available forecast cycles |
-| GET | `/api/v1/cycle?issue=YYYYMMDDTHH` | | A forecast cycle (latest if `issue` is omitted): sources, points, blends, weights, probabilities, alerts |
-| GET | `/api/v1/scorecard` | | Hindcast verification rows |
-| POST | `/api/v1/auth/signup`, `/api/v1/auth/login` | | Create an account or log in → `{ token, user }` |
-| GET | `/api/v1/auth/me` | ✓ | Current user |
-| PATCH | `/api/v1/users/me` | ✓ | Update profile and preferences |
-| POST | `/api/v1/users/me/password`, `/api/v1/users/me/delete` | ✓ | Change password or delete the account |
-| GET · PUT · DELETE | `/api/v1/alerts/acks[/{id}]` | ✓ | List, acknowledge or reopen alerts |
-
-The data endpoints return **503** with instructions until `ml.daily.run_cycle` has produced an export.
-
-## Exports (in the app)
-
-- **Districts (CSV / GeoJSON).** Blend, P10/P90, equal-weight mean, spread, exceedance probabilities, alert level, and each model's forecast and weight.
-- **Alerts (CAP 1.2 XML / JSON).** Marked `status: Exercise`: this is a prototype, not an official IMD warning.
-
-## Project structure
-
-```
-ml/
-  config.yaml            districts, sources, periods, rate limits, blend + alert constants
-  ingest/                Open-Meteo archive, IMD final + real-time grids, ERA5, static
-  live/                  run times, live fetch, Stage A ledger/blend, scorecard
-  daily/run_cycle.py     one command: fetch → blend → export JSON
-  tests/
-backend/
-  main.py                serves ml/exports (cycles, scorecard) + accounts routes
-  auth.py, accounts.py   SQLite accounts, hashing, tokens, preferences, alert acks
-src/
-  data/                  cycle hooks, regions, alerts, URL view state
-  pages/public, pages/app, components/, lib/ (API client, IMD categories, exports, theme)
-```
+[Architecture](docs/architecture.md) · [Data sources](docs/data-sources.md) · [Methodology](docs/methodology.md) · [Pipeline](docs/pipeline.md) · [Verification](docs/verification.md) · [API](docs/api.md) · [Frontend](docs/frontend.md) · [Operations](docs/operations.md) · [Development](docs/development.md) · [Decisions](docs/decisions/README.md) · [Glossary](docs/glossary.md) · [Changelog](docs/changelog.md)
 
 ## License
-MIT. Developed for NCMRWF, Ministry of Earth Sciences.
+MIT. Developed for NCMRWF, Ministry of Earth Sciences. Data: Open-Meteo (CC BY 4.0), ECMWF and NOAA via dynamical.org (CC BY 4.0), India Meteorological Department, Copernicus DEM, and Natural Earth.

@@ -12,3 +12,4 @@ Add a new numbered file rather than editing an accepted one; mark superseded rec
 | [0005](0005-zarr-archives.md) | dynamical.org Zarr archives for AIFS 2024 and full ensembles | accepted |
 | [0006](0006-frozen-test-protocol.md) | Freeze, then score the 2025 monsoon once, with a logged guard | accepted |
 | [0007](0007-live-data-only.md) | The website shows only pipeline output; no demo data | accepted |
+| [0008](0008-stage-a-live-until-test.md) | Stage A stays live until the frozen test confirms Stage B | accepted |

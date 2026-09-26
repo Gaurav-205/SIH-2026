@@ -43,3 +43,6 @@ __pycache__/
 *.egg-info/
 backend/.venv/
 ml/exports/
+
+# validation smoke runs (python -m ml.evaluate.validation --smoke)
+ml/reports/smoke/

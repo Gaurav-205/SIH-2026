@@ -96,6 +96,10 @@ def build() -> dict:
         hind[["point_id", "date", "lead", "equal_mean"]].rename(columns={"equal_mean": "fc"}).assign(method="Equal-weight mean"),
     ], ignore_index=True)
     pairs = combined.merge(rain_truth[["point_id", "date", "obs", "truth"]], on=["point_id", "date"]).dropna(subset=["fc", "obs"])
+    # Score every method only where the blend exists, so no method looks better by being scored on
+    # extra (e.g. dry-season) days: rankings compare like with like.
+    blend_keys = hind[["point_id", "date", "lead"]].drop_duplicates()
+    pairs = pairs.merge(blend_keys, on=["point_id", "date", "lead"])
 
     test = cfg["periods"]["test"]
     periods = {

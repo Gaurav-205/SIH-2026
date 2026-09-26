@@ -84,13 +84,17 @@ def quantile_score(q: dict[float, np.ndarray], o: np.ndarray) -> float:
     return float(np.mean(losses))
 
 
-def crps_normal(mu: np.ndarray, sigma: np.ndarray, o: np.ndarray) -> float:
-    """Closed-form CRPS of N(mu, sigma^2) (Gneiting et al. 2005)."""
+def crps_normal_rows(mu: np.ndarray, sigma: np.ndarray, o: np.ndarray) -> np.ndarray:
+    """Closed-form CRPS of N(mu, sigma^2) per case (Gneiting et al. 2005)."""
     from scipy.stats import norm
 
     s = np.maximum(sigma, 1e-6)
     z = (o - mu) / s
-    return float(np.mean(s * (z * (2 * norm.cdf(z) - 1) + 2 * norm.pdf(z) - 1 / math.sqrt(math.pi))))
+    return s * (z * (2 * norm.cdf(z) - 1) + 2 * norm.pdf(z) - 1 / math.sqrt(math.pi))
+
+
+def crps_normal(mu: np.ndarray, sigma: np.ndarray, o: np.ndarray) -> float:
+    return float(np.mean(crps_normal_rows(mu, sigma, o)))
 
 
 def block_bootstrap_diff(dates: np.ndarray, loss_a: np.ndarray, loss_b: np.ndarray, block_days: int = 5,

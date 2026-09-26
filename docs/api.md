@@ -10,9 +10,10 @@ FastAPI app in [`backend/`](../backend/). Interactive docs are at `http://localh
 | GET | `/api/v1/cycles` | `{ issues: ["YYYYMMDDTHH", ...] }`, newest first |
 | GET | `/api/v1/cycle?issue=YYYYMMDDTHH` | one forecast cycle (latest if `issue` is omitted); `issue` must match `^\d{8}T\d{2}$` |
 | GET | `/api/v1/scorecard` | the verification scorecard |
+| GET | `/api/v1/validation` | out-of-fold validation of every method and ablation (from `python -m ml.evaluate.validation`) |
 
-Until `python -m ml.daily.run_cycle` has written an export, the data endpoints return **503** with a
-message saying how to produce it. The website shows that state rather than placeholder data. The
+Until the pipeline has written an export, the data endpoints return **503**, with a message naming the
+command that produces it. The website shows that state rather than placeholder data. The
 exports folder is `ml/exports`, or the path in `ATMOSFUSION_EXPORTS`.
 
 ### Cycle contract

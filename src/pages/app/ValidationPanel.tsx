@@ -61,7 +61,11 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
     return {
       blends: blendRows.filter((r) => !/^E(5|6|7|8|9|10) /.test(r.method)).sort(byRmse),
       ablations: blendRows.filter((r) => /^E(5|6|7|8|9|10) /.test(r.method)).sort(byRmse),
-      best: rows.filter((r) => r.kind === "source").sort(byRmse)[0],
+      // same definition as the bootstrap card: the single model least favourable to Stage B in paired comparisons
+      best: (() => {
+        const tag = v?.bootstrap.find((b) => b.lead === lead && b.b.startsWith("best source ("))?.b.slice(13, -1);
+        return rows.find((r) => r.kind === "source" && r.method === tag);
+      })(),
     };
   }, [v, lead]);
   const chosen = v?.scores.find((r) => r.lead === lead && r.method === v.chosen_stage_b);
@@ -122,14 +126,20 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
                   </tbody>
                 </table>
               </div>
+              <p className="px-5 py-3 text-xs text-muted">
+                Blends are scored on the same {blends[0]?.n ?? 0} district-days. A single model is scored on the days it has archived forecasts (n); the paired
+                comparison on exactly those days is under "Is the gain real?".
+              </p>
             </Card>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <Card title="Is the gain real?" description={`${v.chosen_stage_b} minus each reference, RMSE in mm (95% paired 5-day block bootstrap)`} bodyClassName="py-1">
+              <Card title="Is the gain real?" description={`${v.chosen_stage_b} minus each reference, in mm (95% paired 5-day block bootstrap)`} bodyClassName="py-1">
                 <ul className="divide-y divide-line">
                   {boot.map((b) => (
                     <li key={b.b} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <span className="min-w-0 truncate text-fg">vs {b.b.startsWith("best source") ? `best model (${labelOf(b.b.slice(13, -1))})` : b.b}</span>
+                      <span className="min-w-0 truncate text-fg">
+                        {b.metric === "crps" ? "CRPS vs Stage A" : `RMSE vs ${b.b.startsWith("best source") ? `best model (${labelOf(b.b.slice(13, -1))})` : b.b}`}
+                      </span>
                       <span className="num flex-shrink-0 text-muted">
                         {b.diff > 0 ? "+" : ""}
                         {num(b.diff)} [{num(b.lo)}, {num(b.hi)}]
@@ -138,7 +148,12 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
                     </li>
                   ))}
                 </ul>
-                {chosen && <p className="pb-3 text-xs text-muted">Negative = Stage B has lower error. Intervals that cross zero are not counted as wins.</p>}
+                {chosen && (
+                  <p className="pb-3 text-xs text-muted">
+                    Negative = Stage B has lower error. Intervals that cross zero are not counted as wins. Each single model is compared on its own days; the
+                    one shown is the least favourable to Stage B.
+                  </p>
+                )}
               </Card>
 
               <Card title="Heavy-rain probabilities" description="Brier skill vs IMD 1991–2020 climatology (above 0 = better than climatology), all leads" bodyClassName="p-0">

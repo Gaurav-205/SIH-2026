@@ -1,0 +1,292 @@
+{
+ "id": "stage_b_20260926T064849Z",
+ "config_sha256": "512d8f8e3514e6b0cbb108ccf7345d43495c9c44c51d3c81cc5c443c746aa326",
+ "git": {
+  "commit": "1df05055ac7fe3b736ee9da2fb403f6e9890e024",
+  "dirty": true
+ },
+ "thresholds_mm": [
+  64.5,
+  115.6,
+  204.5
+ ],
+ "created_at": "2026-09-26T06:48:50.054856+00:00",
+ "variant": "E4 Stage B",
+ "features": [
+  "value_log",
+  "corr_log",
+  "cons_median_log",
+  "cons_mean_log",
+  "cons_sd_log",
+  "dev_log",
+  "n_sources",
+  "led_mae",
+  "led_bias",
+  "led_ratio_log",
+  "led_n",
+  "led_mae_rank",
+  "led_region_scope",
+  "ens_sd_log",
+  "ens_p_ge_64_5",
+  "ens_p_ge_115_6",
+  "lat",
+  "lon",
+  "elev_mean",
+  "slope_mean_deg",
+  "windward_index",
+  "dist_coast_km",
+  "terrain_code",
+  "doy_sin",
+  "doy_cos",
+  "clim_mean",
+  "clim_p95",
+  "clim_p_ge_64_5",
+  "core_z_issue",
+  "core_z3_issue",
+  "regime_code_issue",
+  "region_cons_log",
+  "region_cons_anom",
+  "lead",
+  "source_code"
+ ],
+ "groups": [
+  "forecast",
+  "ledger",
+  "ensemble",
+  "place",
+  "season",
+  "regime",
+  "lead",
+  "source"
+ ],
+ "row_weights": false,
+ "trees": 166,
+ "tau": 4.0,
+ "lam": 0.75,
+ "sigma_scale": 0.75,
+ "tuning_grid": [
+  {
+   "tau": 0.25,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 0.25,
+   "lam": 0.25,
+   "rmse": 14.245037684366126
+  },
+  {
+   "tau": 0.25,
+   "lam": 0.5,
+   "rmse": 14.432888116996175
+  },
+  {
+   "tau": 0.25,
+   "lam": 0.75,
+   "rmse": 14.895298733925394
+  },
+  {
+   "tau": 0.25,
+   "lam": 1.0,
+   "rmse": 15.239267914324484
+  },
+  {
+   "tau": 0.5,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 0.5,
+   "lam": 0.25,
+   "rmse": 14.21411696988277
+  },
+  {
+   "tau": 0.5,
+   "lam": 0.5,
+   "rmse": 14.293199543614719
+  },
+  {
+   "tau": 0.5,
+   "lam": 0.75,
+   "rmse": 14.58229990203763
+  },
+  {
+   "tau": 0.5,
+   "lam": 1.0,
+   "rmse": 14.875267170014196
+  },
+  {
+   "tau": 1.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 1.0,
+   "lam": 0.25,
+   "rmse": 14.19235421614413
+  },
+  {
+   "tau": 1.0,
+   "lam": 0.5,
+   "rmse": 14.174255459547604
+  },
+  {
+   "tau": 1.0,
+   "lam": 0.75,
+   "rmse": 14.299022317657482
+  },
+  {
+   "tau": 1.0,
+   "lam": 1.0,
+   "rmse": 14.500184695975005
+  },
+  {
+   "tau": 2.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 2.0,
+   "lam": 0.25,
+   "rmse": 14.19929007923509
+  },
+  {
+   "tau": 2.0,
+   "lam": 0.5,
+   "rmse": 14.127316721482522
+  },
+  {
+   "tau": 2.0,
+   "lam": 0.75,
+   "rmse": 14.139016151780964
+  },
+  {
+   "tau": 2.0,
+   "lam": 1.0,
+   "rmse": 14.228989823051805
+  },
+  {
+   "tau": 4.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 4.0,
+   "lam": 0.25,
+   "rmse": 14.231553749508377
+  },
+  {
+   "tau": 4.0,
+   "lam": 0.5,
+   "rmse": 14.151239022180796
+  },
+  {
+   "tau": 4.0,
+   "lam": 0.75,
+   "rmse": 14.11339262994902
+  },
+  {
+   "tau": 4.0,
+   "lam": 1.0,
+   "rmse": 14.118550328901266
+  },
+  {
+   "tau": 8.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 8.0,
+   "lam": 0.25,
+   "rmse": 14.268431728955221
+  },
+  {
+   "tau": 8.0,
+   "lam": 0.5,
+   "rmse": 14.205269636606525
+  },
+  {
+   "tau": 8.0,
+   "lam": 0.75,
+   "rmse": 14.164655874452976
+  },
+  {
+   "tau": 8.0,
+   "lam": 1.0,
+   "rmse": 14.146829489441357
+  },
+  {
+   "tau": 16.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 16.0,
+   "lam": 0.25,
+   "rmse": 14.29621500783117
+  },
+  {
+   "tau": 16.0,
+   "lam": 0.5,
+   "rmse": 14.253802393399308
+  },
+  {
+   "tau": 16.0,
+   "lam": 0.75,
+   "rmse": 14.226876397018398
+  },
+  {
+   "tau": 16.0,
+   "lam": 1.0,
+   "rmse": 14.21552506096312
+  },
+  {
+   "tau": 32.0,
+   "lam": 0.0,
+   "rmse": 14.351365402301205
+  },
+  {
+   "tau": 32.0,
+   "lam": 0.25,
+   "rmse": 14.313260716022201
+  },
+  {
+   "tau": 32.0,
+   "lam": 0.5,
+   "rmse": 14.28594716875336
+  },
+  {
+   "tau": 32.0,
+   "lam": 0.75,
+   "rmse": 14.272113393590882
+  },
+  {
+   "tau": 32.0,
+   "lam": 1.0,
+   "rmse": 14.271798588760173
+  }
+ ],
+ "training_data": {
+  "rows": 419687,
+  "point_days_x_leads": 49590,
+  "start": "2024-01-21",
+  "end": "2024-12-29",
+  "sources": {
+   "gefs_ens": 49590,
+   "gem_global": 49590,
+   "cma_grapes_global": 49531,
+   "bom_access_global": 49271,
+   "ecmwf_ifs025": 47415,
+   "ecmwf_aifs025_single": 39150,
+   "gfs_global": 36395,
+   "icon_global": 36395,
+   "jma_gsm": 36395,
+   "meteofrance_arpege_world": 21924,
+   "ukmo_global_deterministic_10km": 4031
+  }
+ },
+ "validation": {
+  "generated_at": "2026-09-26T06:47:16.834521+00:00",
+  "git_commit": "1df05055ac7fe3b736ee9da2fb403f6e9890e024"
+ }
+}

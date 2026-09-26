@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
-import json
 import logging
 import math
 import pickle
@@ -34,7 +33,7 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-from ml.common import config, path
+from ml.common import config, path, write_json
 from ml.evaluate import scores
 from ml.features import build_table
 from ml.features.build_table import GROUP
@@ -277,7 +276,9 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
             reliability[f"{c}|{m}"] = rel["table"]
     brier_table = pd.DataFrame(brier_rows)
 
-    # paired block-bootstrap intervals: chosen Stage B vs Stage A, E2, E1, and the best single source per lead
+    # paired block-bootstrap intervals: chosen Stage B vs Stage A, E2, E1, B-alt, and every single source on
+    # that source's own days. "Best source" is the least favourable of those paired comparisons, so the
+    # choice never depends on sources being scored on different samples.
     boot = []
     for lead in sorted(frame["lead"].unique()):
         fl = frame[frame["lead"] == lead]
@@ -286,14 +287,25 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
         for ref in ("E3 Stage A", "E2 static MME", "E1 equal mean", "B-alt stacking (mean)"):
             r = scores.block_bootstrap_diff(d, se[b_name], se[ref], stat="rmse", seed=rng_seed)
             boot.append({"lead": int(lead), "a": b_name, "b": ref, "metric": "rmse", **r})
-        srcs = table[(table["lead"] == lead) & (table["kind"] == "source")]
-        if len(srcs):
-            best = srcs.loc[srcs["rmse"].idxmin(), "method"]
-            g = source_frame[(source_frame["lead"] == lead) & (source_frame["source"] == best)].set_index(GROUP)["value"]
-            j = fl.set_index(GROUP).join(g.rename("best"), how="inner")
+        per_source = []
+        for src, g in source_frame[source_frame["lead"] == lead].groupby("source"):
+            j = fl.set_index(GROUP).join(g.set_index(GROUP)["value"].rename("src"), how="inner")
+            if len(j) < 500:
+                continue
             r = scores.block_bootstrap_diff(j.index.get_level_values("date").to_numpy(), ((j[b_name] - j["obs"]) ** 2).to_numpy(),
-                                            ((j["best"] - j["obs"]) ** 2).to_numpy(), stat="rmse", seed=rng_seed)
-            boot.append({"lead": int(lead), "a": b_name, "b": f"best source ({best})", "metric": "rmse", **r})
+                                            ((j["src"] - j["obs"]) ** 2).to_numpy(), stat="rmse", seed=rng_seed)
+            per_source.append({"lead": int(lead), "a": b_name, "b": f"source {src}", "metric": "rmse", "n": len(j), **r})
+        boot += per_source
+        if per_source:
+            worst = max(per_source, key=lambda x: x["diff"])
+            boot.append({**worst, "b": f"best source ({worst['b'][7:]})"})
+        # probabilistic: CRPS of Stage B vs Stage A (normal predictive distributions, cross-fitted sigma)
+        idx = pd.MultiIndex.from_frame(fl[GROUP])
+        o = fl["obs"].to_numpy()
+        crps_b = scores.crps_normal_rows(bb.loc[idx, "blend"].to_numpy(), bb.loc[idx, "sigma_cal"].to_numpy(), o)
+        crps_a = scores.crps_normal_rows(ab.loc[idx, "blend"].to_numpy(), ab.loc[idx, "sigma_cal"].to_numpy(), o)
+        boot.append({"lead": int(lead), "a": b_name, "b": "E3 Stage A (CRPS)", "metric": "crps",
+                     **scores.block_bootstrap_diff(d, crps_b, crps_a, seed=rng_seed)})
     boot_table = pd.DataFrame(boot)
 
     # stratified RMSE (Stage A vs chosen Stage B vs E2)
@@ -332,14 +344,14 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
         "importance": importance,
     }
     out = path("reports_dir", "smoke") if args.smoke else path("reports_dir")
-    (out / "validation.json").write_text(json.dumps(result, indent=1, default=_json_default), encoding="utf-8")
+    write_json(out / "validation.json", result, indent=1)
     from ml.evaluate import report
 
     report.write_validation(result, out)
     if not args.smoke:
         exports = path("data_dir").parent / "exports"
         exports.mkdir(parents=True, exist_ok=True)
-        (exports / "validation.json").write_text(json.dumps(report.export_for_web(result), default=_json_default), encoding="utf-8")
+        write_json(exports / "validation.json", report.export_for_web(result))
     log.info("validation written to %s", out)
 
 

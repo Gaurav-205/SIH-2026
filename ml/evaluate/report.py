@@ -121,9 +121,10 @@ def write_validation(result: dict, out_dir=None) -> None:
         lines += [f"### Lead day {lead}", "",
                   md_table(g, ["method", "n", "rmse", "mae", "bias", "corr", "ets_64_5", "pod_64_5", "far_64_5",
                                "ets_115_6", "sedi_115_6"]), ""]
-    lines += ["## Stage B vs references: paired 5-day block bootstrap (RMSE difference, mm)", "",
-              "Negative = Stage B better. An interval that crosses zero is not a demonstrated gain.", "",
-              md_table(pd.DataFrame(result["bootstrap"]), ["lead", "b", "diff", "lo", "hi"]), ""]
+    lines += ["## Stage B vs references: paired 5-day block bootstrap (difference in RMSE or CRPS, mm)", "",
+              "Negative = Stage B better. An interval that crosses zero is not a demonstrated gain. Single sources are "
+              "compared on their own days; 'best source' is the least favourable of those comparisons.", "",
+              md_table(pd.DataFrame(result["bootstrap"]), ["lead", "b", "metric", "diff", "lo", "hi"]), ""]
     lines += ["## Probabilistic scores", "", md_table(pd.DataFrame(result["probabilistic"]),
               ["lead", "method", "crps_normal", "quantile_score", "coverage_10_90"]), "",
               "Coverage of the 10-90% range should be close to 0.80.", "",
@@ -146,7 +147,8 @@ def export_for_web(result: dict) -> dict:
         "truth": result["truth"], "points": result["points"], "sources": result["sources"],
         "chosen_stage_b": result["chosen_stage_b"],
         "scores": [{k: r.get(k) for k in keep} for r in result["scores"]],
-        "bootstrap": [{k: r[k] for k in ("lead", "b", "diff", "lo", "hi")} for r in result["bootstrap"]],
+        "bootstrap": [{k: r[k] for k in ("lead", "b", "metric", "diff", "lo", "hi")} for r in result["bootstrap"]
+                      if not r["b"].startswith("source ")],
         "brier": [{k: r[k] for k in ("threshold", "method", "n", "events", "bss_vs_climatology")} for r in result["brier"]],
         "probabilistic": result["probabilistic"],
         "importance": result["importance"][:12],
