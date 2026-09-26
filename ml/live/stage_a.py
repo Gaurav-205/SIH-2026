@@ -166,6 +166,10 @@ def blend_one(var: str, values: dict[str, float], skill: pd.DataFrame) -> dict:
     p10, p90 = blend - z * sigma, blend + z * sigma
     if var in ("rain", "wind"):
         blend, p10 = max(0.0, blend), max(0.0, p10)
+    if var == "rain":
+        drizzle = cfg.get("drizzle_threshold_mm", 0.0)
+        if drizzle > 0 and blend < drizzle:
+            blend = 0.0
     out = {
         "blend": blend, "p10": p10, "p90": p90, "sigma": sigma,
         "equal_mean": float(raw.mean()), "spread_sd": float(raw.std()),

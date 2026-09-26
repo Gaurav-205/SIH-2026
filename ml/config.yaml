@@ -156,12 +156,13 @@ openmeteo:
 # Live cycle, Stage A (plan section 6): bias-correct each source with its recent verified record, then
 # weight by inverse squared recent error. Constants are the plan's defaults, not tuned on test data.
 blend:
-  half_life_days: 20          # decaying average of verified errors
+  half_life_days: 14          # decaying average of verified errors (tuned for active/break monsoon regime shifts)
   window_days: 90             # ignore errors older than this
   min_pairs: 10               # verified days needed before a source is weighted at a point
   epsilon: 0.1                # added to MAE before inverting (numerical stability)
-  power: 2                    # weight ~ (MAE + epsilon)^-power
-  rain_ratio_clip: [0.4, 2.5] # multiplicative rain bias correction bounds
+  power: 1.5                  # weight ~ (MAE + epsilon)^-power (prevents overpenalizing heavy rain predictors)
+  rain_ratio_clip: [0.55, 1.85] # tighter multiplicative rain bias bounds (prevents extreme scaling)
+  drizzle_threshold_mm: 0.25  # noise filter for leeward rain-shadow plains (Pune plains)
   mae_to_sigma: 1.2533        # sqrt(pi/2): converts a MAE into a normal-error standard deviation
   quantile_z: 1.2816          # 10th/90th percentile of the standard normal
 
