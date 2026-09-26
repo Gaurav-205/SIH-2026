@@ -178,5 +178,45 @@ export function useCycleIndex(cycle: Cycle | undefined) {
   }, [cycle]);
 }
 
+export interface TelemetryData {
+  point_id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  is_coastal: boolean;
+  air_quality: {
+    time?: string;
+    pm2_5?: number;
+    pm10?: number;
+    european_aqi?: number;
+    uv_index?: number;
+  } | null;
+  surface: {
+    time?: string;
+    relative_humidity_2m?: number;
+    surface_pressure?: number;
+    soil_moisture_0_to_1cm?: number;
+  } | null;
+  marine: {
+    time?: string;
+    wave_height?: number;
+    wave_direction?: number;
+    wave_period?: number;
+  } | null;
+  radar: {
+    pune_dwr: string;
+    mumbai_dwr: string;
+    satellite_ir: string;
+  };
+}
+
+export function useTelemetry(pointId: string) {
+  return useQuery({
+    queryKey: ["telemetry", pointId],
+    queryFn: () => apiRequest<TelemetryData>("GET", `/api/v1/telemetry?point_id=${encodeURIComponent(pointId)}`),
+    staleTime: 120_000,
+  });
+}
+
 export const fmtRunTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
 export const fmtDay = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });

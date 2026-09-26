@@ -39,13 +39,17 @@ Truth values are taken from the IMD cell nearest each district centroid that has
 of days. IMD grids are land-only, so a coastal centroid can map to a neighbouring cell. The chosen cell
 is stored with every value.
 
-### Static
+### Static and Environmental Telemetry
 
 | Dataset | Used for | Access | Licence |
 | :--- | :--- | :--- | :--- |
 | [Copernicus DEM GLO-90](https://registry.opendata.aws/copernicus-dem/) | elevation, slope, aspect, windward index, land fraction | anonymous COG tiles on AWS | Copernicus DEM licence (free) |
 | [Natural Earth 10 m coastline](https://www.naturalearthdata.com/) | distance to coast | direct download | public domain |
 | Open-Meteo Elevation API | point elevation shown on the website | HTTP JSON | CC BY 4.0 |
+| Open-Meteo Air Quality API (CAMS / SAFAR) | PM2.5, PM10, European AQI, UV index for Pune & Mumbai | HTTP JSON | CC BY 4.0 |
+| Open-Meteo Marine API | Arabian Sea swell, wave height, wave period for coastal Maharashtra (Mumbai, MMR) | HTTP JSON | CC BY 4.0 |
+| Catchment Hydrology (Open-Meteo) | Topsoil moisture (0–1 cm), atmospheric pressure, relative humidity | HTTP JSON | CC BY 4.0 |
+| IMD Doppler Weather Radar (DWR) & INSAT-3D | Real-time nowcasts from IMD Pune (Pashan) & IMD Mumbai radars | Public IMD Mausam Portal | IMD Public Service |
 
 ## Evaluated but not used (yet), and why
 

@@ -6,7 +6,7 @@ import { Badge, Button, Card, PageHeader, Segmented } from "@/components/ui";
 import DistrictMap from "@/components/DistrictMap";
 import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
-import { fmtDay, useCycle, useCycleIndex, type Cycle, type ForecastRec, type Var } from "@/data/cycle";
+import { fmtDay, useCycle, useCycleIndex, useTelemetry, type Cycle, type ForecastRec, type Var } from "@/data/cycle";
 import { REGIONS } from "@/data/regions";
 import { LEADS, useView } from "@/data/state";
 import { exportDistrictsCsv, exportDistrictsGeoJson } from "@/lib/exportUtils";
@@ -114,6 +114,103 @@ function Outlook({ pointId, idx, cycle, lead }: { pointId: string; idx: ReturnTy
   );
 }
 
+function StationTelemetryCard({ pointId }: { pointId: string }) {
+  const { data: tel, isLoading } = useTelemetry(pointId);
+  if (isLoading) {
+    return (
+      <Card title="Live Microclimate & Environmental Telemetry" description="Querying live telemetry sensors…">
+        <p className="text-xs text-muted">Loading live station sensors…</p>
+      </Card>
+    );
+  }
+  if (!tel) return null;
+
+  return (
+    <Card
+      title="Live Microclimate & Environmental Telemetry"
+      description={`Real-time atmospheric composition, catchment moisture & IMD radar nowcasts for ${tel.name}`}
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Air Quality */}
+        {tel.air_quality && (
+          <div className="rounded-lg border border-line bg-subtle/50 p-3">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Air Quality (SAFAR)</span>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-fg">AQI {tel.air_quality.european_aqi ?? "—"}</span>
+              <Badge tone={(tel.air_quality.european_aqi ?? 0) > 75 ? "danger" : (tel.air_quality.european_aqi ?? 0) > 50 ? "warn" : "ok"}>
+                {(tel.air_quality.european_aqi ?? 0) <= 50 ? "Good" : (tel.air_quality.european_aqi ?? 0) <= 75 ? "Moderate" : "Poor"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              PM2.5: {tel.air_quality.pm2_5?.toFixed(1) ?? "—"} µg/m³ · PM10: {tel.air_quality.pm10?.toFixed(1) ?? "—"} µg/m³
+            </p>
+            <p className="text-[11px] text-muted">UV Index: {tel.air_quality.uv_index?.toFixed(1) ?? "—"}</p>
+          </div>
+        )}
+
+        {/* Catchment & Surface */}
+        {tel.surface && (
+          <div className="rounded-lg border border-line bg-subtle/50 p-3">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Catchment & Soil Moisture</span>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-fg">{tel.surface.relative_humidity_2m ?? "—"}%</span>
+              <span className="text-xs font-medium text-muted">Humidity</span>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Topsoil Saturation: {tel.surface.soil_moisture_0_to_1cm ? `${(tel.surface.soil_moisture_0_to_1cm * 100).toFixed(1)}%` : "—"}
+            </p>
+            <p className="text-[11px] text-muted">Pressure: {tel.surface.surface_pressure?.toFixed(1) ?? "—"} hPa</p>
+          </div>
+        )}
+
+        {/* Marine Swells for Coastal */}
+        {tel.is_coastal && tel.marine && (
+          <div className="rounded-lg border border-line bg-subtle/50 p-3">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Arabian Sea Swell</span>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-fg">{tel.marine.wave_height?.toFixed(2) ?? "—"} m</span>
+              <span className="text-xs font-medium text-muted">Wave Height</span>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Period: {tel.marine.wave_period?.toFixed(1) ?? "—"} s · Direction: {tel.marine.wave_direction ?? "—"}°
+            </p>
+            <p className="text-[11px] text-muted">Coastal surge alert threshold: 2.5 m</p>
+          </div>
+        )}
+      </div>
+
+      {/* Radar Nowcast Links */}
+      <div className="mt-4 border-t border-line pt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted">IMD Radar Nowcasts:</span>
+        <a
+          href={tel.radar.pune_dwr}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+        >
+          📡 IMD Pune Doppler Radar (Pashan)
+        </a>
+        <a
+          href={tel.radar.mumbai_dwr}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+        >
+          📡 IMD Mumbai Doppler Radar (Colaba)
+        </a>
+        <a
+          href={tel.radar.satellite_ir}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+        >
+          🛰️ INSAT Satellite IR Nowcast
+        </a>
+      </div>
+    </Card>
+  );
+}
+
 export default function Districts() {
   const { region, lead } = useView();
   const [params, setParams] = useSearchParams();
@@ -130,7 +227,9 @@ export default function Districts() {
   const points = useMemo(() => c?.points.filter((p) => p.region === region) ?? [], [c, region]);
   const selectedId = points.some((p) => p.id === params.get("district"))
     ? params.get("district")!
-    : [...points].sort((a, b) => (idx.get(b.id, lead, "rain")?.blend ?? 0) - (idx.get(a.id, lead, "rain")?.blend ?? 0))[0]?.id;
+    : (points.find((p) => p.id === "pune-ghats")?.id ??
+       points.find((p) => p.id.includes("pune"))?.id ??
+       [...points].sort((a, b) => (idx.get(b.id, lead, "rain")?.blend ?? 0) - (idx.get(a.id, lead, "rain")?.blend ?? 0))[0]?.id);
   const selected = points.find((p) => p.id === selectedId);
   const f = selected ? idx.get(selected.id, lead, v) : undefined;
   const rain = selected ? idx.get(selected.id, lead, "rain") : undefined;
@@ -138,8 +237,8 @@ export default function Districts() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Districts"
-        description="Every model's live forecast for each district, how well each has verified here recently, and the weight it earned."
+        title="Districts & Stations"
+        description="Every model's live forecast for each district, recent verification against IMD, and the adaptive weights assigned."
         actions={
           c && (
             <>
@@ -157,6 +256,47 @@ export default function Districts() {
         {c && selected && (
           <div className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
             <div className="space-y-4">
+              {region === "konkan" && (
+                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface/70 p-2">
+                  <span className="text-xs font-semibold text-accent pr-1">Target Focus:</span>
+                  <button
+                    type="button"
+                    onClick={() => setParam("district", "pune-ghats")}
+                    className={cx(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
+                      selected.id === "pune-ghats"
+                        ? "bg-accent text-white shadow-sm"
+                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
+                    )}
+                  >
+                    📍 Pune Ghats (Western Catchment)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParam("district", "pune-plains")}
+                    className={cx(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
+                      selected.id === "pune-plains"
+                        ? "bg-accent text-white shadow-sm"
+                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
+                    )}
+                  >
+                    📍 Pune Plains / City
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParam("district", "mumbai")}
+                    className={cx(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
+                      selected.id === "mumbai"
+                        ? "bg-accent text-white shadow-sm"
+                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
+                    )}
+                  >
+                    📍 Mumbai (Coastal MMR)
+                  </button>
+                </div>
+              )}
               <DistrictMap
                 points={points.map((p) => ({ ...p, alert: idx.get(p.id, lead, "rain")?.alert_level }))}
                 selectedId={selected.id}
@@ -266,6 +406,8 @@ export default function Districts() {
                   </ul>
                 </Card>
               )}
+
+              <StationTelemetryCard pointId={selected.id} />
             </div>
           </div>
         )}

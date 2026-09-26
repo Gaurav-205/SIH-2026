@@ -6,7 +6,7 @@
  */
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
-import { RedirectIfSignedIn, RequireAuth, RequireOnboarded, SessionRefresh, SignOut, ThemeSync } from "./auth/guards";
+import { RequireAuth, RequireOnboarded, SessionRefresh, SignOut, ThemeSync } from "./auth/guards";
 import { Spinner } from "./components/ui";
 import Landing from "./pages/public/Landing";
 import NotFound, { RouteError } from "./pages/NotFound";
@@ -43,11 +43,12 @@ const routes = [
     element: <Root />,
     errorElement: <RouteError />,
     children: [
-      { path: "/", element: <Landing /> },
-      { path: "/login", element: <RedirectIfSignedIn><Login /></RedirectIfSignedIn> },
-      { path: "/signup", element: <RedirectIfSignedIn><Signup /></RedirectIfSignedIn> },
+      { path: "/", element: <Navigate to="/app" replace /> },
+      { path: "/landing", element: <Landing /> },
+      { path: "/login", element: page(<Login />) },
+      { path: "/signup", element: page(<Signup />) },
       { path: "/logout", element: <SignOut /> },
-      { path: "/welcome", element: <RequireAuth><Welcome /></RequireAuth> },
+      { path: "/welcome", element: page(<Welcome />) },
       {
         path: "/app",
         element: (

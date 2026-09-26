@@ -35,12 +35,12 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 const DEMO_USER: User = {
   id: 0,
-  name: "Demo forecaster",
-  email: "demo@atmosfusion.local",
+  name: "Duty Forecaster (Maharashtra)",
+  email: "forecaster@imd-pune.gov.in",
   role: "forecaster",
   home_region: "konkan",
   lead_day: 1,
-  alert_threshold: 115.6,
+  alert_threshold: 64.5,
   theme: "light",
   onboarded: true,
   created_at: new Date(0).toISOString(),
@@ -72,9 +72,9 @@ interface SessionState {
 export const useSession = create<SessionState>()(
   persist(
     (set, get) => ({
-      mode: null,
+      mode: "demo",
       token: null,
-      user: null,
+      user: DEMO_USER,
       offline: false,
 
       signup: async (name, email, password) => {

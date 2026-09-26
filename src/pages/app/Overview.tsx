@@ -91,6 +91,102 @@ export default function Overview() {
               </p>
             )}
 
+            {/* Pune & Mumbai Meteorological Spotlight */}
+            <div className="mt-6 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 via-subtle/50 to-transparent p-5">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-accent">Maharashtra Focus Hub</span>
+                  </div>
+                  <h3 className="mt-1 text-base font-semibold text-fg">Pune & Mumbai Microclimate Intelligence</h3>
+                  <p className="text-xs text-muted">
+                    High-resolution multi-model blending targeting Pune's dual orographic zones (Ghats vs Plains) and Mumbai coastal MMR.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-ghats` }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-surface px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10 transition"
+                  >
+                    📍 Pune Ghats <ArrowRight className="h-3 w-3" />
+                  </Link>
+                  <Link
+                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-plains` }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-surface px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10 transition"
+                  >
+                    📍 Pune Plains <ArrowRight className="h-3 w-3" />
+                  </Link>
+                  <Link
+                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=mumbai` }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent/40 transition"
+                  >
+                    📍 Mumbai MMR <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Sub-cards */}
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {(() => {
+                  const pg = idx.get("pune-ghats", lead, "rain");
+                  return (
+                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-fg">Pune Ghats (Catchment)</span>
+                        {pg?.alert_level && <Badge tone={pg.alert_level === "Red" ? "danger" : "warn"}>{pg.alert_level}</Badge>}
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-fg">
+                        {pg ? `${pg.blend.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        P10–P90: {pg ? `${pg.p10.toFixed(1)}–${pg.p90.toFixed(1)} mm` : "—"} · Equal {pg ? `${pg.equal_mean.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-2 text-[11px] text-muted">Lonavala / Mulshi / Khadakwasla dams basin</p>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const pp = idx.get("pune-plains", lead, "rain");
+                  return (
+                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-fg">Pune City & Plains</span>
+                        {pp?.alert_level && <Badge tone={pp.alert_level === "Red" ? "danger" : "warn"}>{pp.alert_level}</Badge>}
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-fg">
+                        {pp ? `${pp.blend.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        P10–P90: {pp ? `${pp.p10.toFixed(1)}–${pp.p90.toFixed(1)} mm` : "—"} · Equal {pp ? `${pp.equal_mean.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-2 text-[11px] text-muted">Shivajinagar / Haveli / Pune Urban core</p>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const mb = idx.get("mumbai", lead, "rain");
+                  return (
+                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-fg">Mumbai Metropolitan</span>
+                        {mb?.alert_level && <Badge tone={mb.alert_level === "Red" ? "danger" : "warn"}>{mb.alert_level}</Badge>}
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-fg">
+                        {mb ? `${mb.blend.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        P10–P90: {mb ? `${mb.p10.toFixed(1)}–${mb.p90.toFixed(1)} mm` : "—"} · Equal {mb ? `${mb.equal_mean.toFixed(1)} mm` : "—"}
+                      </p>
+                      <p className="mt-2 text-[11px] text-muted">Colaba / Santacruz / Coastal MMR</p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
               <Card
                 title={`Rainfall, ${REGIONS[region].name}`}

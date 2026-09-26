@@ -114,6 +114,89 @@ def validation():
     return _json_file(EXPORTS_DIR / "validation.json", "validation report", "python -m ml.evaluate.validation")
 
 
+_TELEMETRY_CACHE: dict[str, tuple[dict, float]] = {}
+
+
+@app.get("/api/v1/telemetry")
+def telemetry(point_id: str = Query("pune-ghats", description="District point id")):
+    """Live microclimate, air quality (SAFAR/CAMS), marine surges, and soil moisture telemetry."""
+    import time
+    import urllib.request
+
+    now = time.time()
+    if point_id in _TELEMETRY_CACHE:
+        val, ts = _TELEMETRY_CACHE[point_id]
+        if now - ts < 300:  # 5-minute cache
+            return val
+
+    latest = EXPORTS_DIR / "latest.json"
+    lat, lon, name = 18.52, 73.85, "Pune"
+    if latest.exists():
+        try:
+            c = json.loads(latest.read_text(encoding="utf-8"))
+            for p in c.get("points", []):
+                if p["id"] == point_id:
+                    lat, lon, name = p["lat"], p["lon"], p["name"]
+                    break
+        except Exception:
+            pass
+
+    is_coastal = point_id in {
+        "mumbai", "thane", "raigad", "ratnagiri", "sindhudurg", "north-goa", "south-goa",
+        "alappuzha", "kozhikode", "kannur", "kasaragod", "kollam", "thiruvananthapuram"
+    }
+
+    out = {
+        "point_id": point_id,
+        "name": name,
+        "lat": lat,
+        "lon": lon,
+        "is_coastal": is_coastal,
+        "air_quality": None,
+        "surface": None,
+        "marine": None,
+        "radar": {
+            "pune_dwr": "https://mausam.imd.gov.in/radar/dwr_pune.gif",
+            "mumbai_dwr": "https://mausam.imd.gov.in/radar/dwr_mumbai.gif",
+            "satellite_ir": "https://mausam.imd.gov.in/satellite/insat3d_ir1.jpg",
+        },
+    }
+
+    # Air Quality (PM2.5, PM10, AQI, UV)
+    try:
+        url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pm2_5,pm10,european_aqi,uv_index"
+        req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            out["air_quality"] = data.get("current")
+    except Exception:
+        pass
+
+    # Surface & Catchment Soil Moisture
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=relative_humidity_2m,surface_pressure,soil_moisture_0_to_1cm"
+        req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            out["surface"] = data.get("current")
+    except Exception:
+        pass
+
+    # Marine Arabian Sea Swells (for Coastal Districts)
+    if is_coastal:
+        try:
+            url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&current=wave_height,wave_direction,wave_period"
+            req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                out["marine"] = data.get("current")
+        except Exception:
+            pass
+
+    _TELEMETRY_CACHE[point_id] = (out, now)
+    return out
+
+
 if __name__ == "__main__":
     import uvicorn
 

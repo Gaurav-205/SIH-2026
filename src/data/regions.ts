@@ -2,6 +2,6 @@
 export type RegionId = "konkan" | "kerala";
 
 export const REGIONS: Record<RegionId, { id: RegionId; name: string }> = {
-  konkan: { id: "konkan", name: "Konkan and Goa" },
+  konkan: { id: "konkan", name: "Maharashtra (Pune & Mumbai)" },
   kerala: { id: "kerala", name: "Kerala" },
 };

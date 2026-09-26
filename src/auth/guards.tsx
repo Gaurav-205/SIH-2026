@@ -1,22 +1,21 @@
 import { useEffect, type ReactNode } from "react";
-import { Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useSession } from "./session";
 
-/** Only signed-in users (account or demo); others go to /login and come back afterwards. */
+/** Automatically populates session so user enters app directly without login barrier. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const user = useSession((s) => s.user);
-  const loc = useLocation();
-  if (!user) {
-    const next = encodeURIComponent(loc.pathname + loc.search);
-    return <Navigate to={`/login?next=${next}`} replace />;
-  }
+  const startDemo = useSession((s) => s.startDemo);
+  useEffect(() => {
+    if (!user) {
+      startDemo();
+    }
+  }, [user, startDemo]);
   return <>{children}</>;
 }
 
-/** New accounts finish onboarding before reaching the dashboard. */
+/** New accounts finish onboarding or pass through directly. */
 export function RequireOnboarded({ children }: { children: ReactNode }) {
-  const onboarded = useSession((s) => s.user?.onboarded);
-  if (!onboarded) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
