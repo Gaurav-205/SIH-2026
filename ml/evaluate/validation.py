@@ -5,6 +5,11 @@ the training period; Stage B's tau/lambda and the sigma scale are cross-fitted (
 months, applied to the other). The frozen test season is never read here.
 
     python -m ml.evaluate.validation            # writes ml/reports/validation.{json,md} and figures
+    python -m ml.evaluate.validation --smoke    # 3 months end to end in minutes (ml/reports/smoke/), run first
+    python -m ml.evaluate.validation --fresh    # ignore cached experiment results
+
+Each experiment's out-of-fold result is cached (ml/data/features/validation_cache/<key>/), keyed by the
+config hash and the table's size and dates, so a crash late in the run never loses finished experiments.
 
 Experiments
   E0  each source alone (raw)                 E5  E4 without regime features
@@ -17,10 +22,13 @@ Experiments
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
+import hashlib
 import json
 import logging
 import math
+import pickle
 import subprocess
 
 import numpy as np
@@ -105,10 +113,42 @@ def git_commit() -> str | None:
         return None
 
 
+SMOKE_MONTHS = (6, 7, 12)
+
+
+class ExperimentCache:
+    """Pickled experiment results under a key that changes whenever config or data change."""
+
+    def __init__(self, df: pd.DataFrame, smoke: bool, fresh: bool):
+        from ml.models.artifact import config_sha256
+
+        raw = f"{config_sha256()}|{len(df)}|{df['date'].min()}|{df['date'].max()}|{df['source'].nunique()}|{smoke}"
+        self.dir = path("data_dir", "features", "validation_cache", hashlib.sha1(raw.encode()).hexdigest()[:12])
+        self.fresh = fresh
+
+    def get(self, name: str, fn):
+        f = self.dir / (hashlib.sha1(name.encode()).hexdigest()[:10] + ".pkl")
+        if f.exists() and not self.fresh:
+            log.info("cached: %s", name)
+            return pickle.loads(f.read_bytes())
+        value = fn()
+        f.write_bytes(pickle.dumps(value))
+        return value
+
+
 def main() -> None:  # noqa: C901 - one linear experiment script, kept in one place on purpose
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--smoke", action="store_true", help="3 months only; outputs to ml/reports/smoke/")
+    ap.add_argument("--fresh", action="store_true", help="recompute every experiment")
+    args = ap.parse_args()
     rng_seed = 26081
+
+    def subset(d: pd.DataFrame) -> pd.DataFrame:
+        return d[d["date"].dt.month.isin(SMOKE_MONTHS)].reset_index(drop=True) if args.smoke else d
+
     full = build_table.build()
-    df = train_rows(full)
+    df = subset(train_rows(full))
+    cache = ExperimentCache(df, args.smoke, args.fresh)
     log.info("validation rows: %d forecasts, %d point-days x leads, %s..%s", len(df), df.groupby(GROUP).ngroups,
              df["date"].min().date(), df["date"].max().date())
     truth = df.drop_duplicates(GROUP).set_index(GROUP)["obs"]
@@ -121,29 +161,29 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
     src_wide = baselines.wide(df, "value")
     preds["E1 equal mean"] = src_wide.mean(axis=1)
     # E2 static MME
-    preds["E2 static MME"] = baselines.static_mme_cv(df)
+    preds["E2 static MME"] = cache.get("E2", lambda: baselines.static_mme_cv(df))
     # E3 Stage A
     sa = stage_a_frame(df).set_index(GROUP)
     preds["E3 Stage A"] = sa["blend"]
     # E4 Stage B, with and without heavy-rain row weights
     runs = {}
     for name, cfg in [("E4 Stage B", stage_b.StageBConfig()), ("E4w Stage B (row weights)", stage_b.StageBConfig(row_weights=True))]:
-        bl, pred, info = run_stage_b(df, cfg)
+        bl, pred, info = cache.get(name, lambda cfg=cfg: run_stage_b(df, cfg))
         runs[name] = (bl.set_index(GROUP), pred, info)
         preds[name] = runs[name][0]["blend"]
     # ablations E5-E8 (feature groups)
     all_groups = list(build_table.FEATURE_GROUPS)
     for code, drop in [("E5", "regime"), ("E6", "lead"), ("E7", "place"), ("E8", "season")]:
         cfg = stage_b.StageBConfig(groups=[g for g in all_groups if g != drop])
-        bl, _, info = run_stage_b(df, cfg)
+        bl, _, info = cache.get(code, lambda cfg=cfg: run_stage_b(df, cfg))
         preds[f"{code} Stage B without {drop}"] = bl.set_index(GROUP)["blend"]
     # ablations E9/E10 (source pools): rebuilt tables so no feature sees the removed sources
     for code, fam in [("E9", "ai"), ("E10", "ensemble")]:
-        sub = train_rows(build_table.build(exclude_families=(fam,)))
-        bl, _, _ = run_stage_b(sub, stage_b.StageBConfig())
+        bl, _, _ = cache.get(code, lambda fam=fam: run_stage_b(subset(train_rows(build_table.build(exclude_families=(fam,)))),
+                                                                 stage_b.StageBConfig()))
         preds[f"{code} Stage B without {fam} sources"] = bl.set_index(GROUP)["blend"]
     # B-alt stacking
-    balt = baselines.stacking_cv(df)
+    balt = cache.get("B-alt", lambda: baselines.stacking_cv(df))
     preds["B-alt stacking (mean)"] = balt["mean"]
 
     # choose the Stage B variant on validation RMSE (cross-fitted numbers)
@@ -154,14 +194,15 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
     b_name = min(("E4 Stage B", "E4w Stage B (row weights)"), key=lambda k: rmse(preds[k]))
     b_frame, b_pred, b_info = runs[b_name]
     # out-of-fold predictions of the chosen variant: the freeze step tunes tau/lam/sigma on all of them
-    df[GROUP + ["source"]].assign(pred=b_pred).to_parquet(path("data_dir", "features") / "stage_b_oof.parquet", index=False)
+    if not args.smoke:
+        df[GROUP + ["source"]].assign(pred=b_pred).to_parquet(path("data_dir", "features") / "stage_b_oof.parquet", index=False)
 
     # probabilities
     a_frame = sa.join(truth.rename("obs")).reset_index()
     a_sigma = crossfit_sigma_scale(a_frame, a_frame["sigma"].to_numpy())
     b_frame2 = b_frame.join(truth.rename("obs")).reset_index()
     b_sigma = crossfit_sigma_scale(b_frame2, np.sqrt(b_frame2["spread2"] + b_frame2["err2"]).to_numpy())
-    cal = extremes.calibrated_cv(df)
+    cal = cache.get("isotonic", lambda: extremes.calibrated_cv(df))
     w_b_rows = _crossfit_weights(df, b_pred, b_info)
     p_iso = extremes.blend_probs(df, cal, w_b_rows).set_index(GROUP)
     p_iso_a = extremes.blend_probs(df, cal, df["w_a"]).set_index(GROUP)
@@ -290,14 +331,15 @@ def main() -> None:  # noqa: C901 - one linear experiment script, kept in one pl
         "strata": strata_table.to_dict("records"),
         "importance": importance,
     }
-    out = path("reports_dir")
+    out = path("reports_dir", "smoke") if args.smoke else path("reports_dir")
     (out / "validation.json").write_text(json.dumps(result, indent=1, default=_json_default), encoding="utf-8")
     from ml.evaluate import report
 
-    report.write_validation(result)
-    exports = path("data_dir").parent / "exports"
-    exports.mkdir(parents=True, exist_ok=True)
-    (exports / "validation.json").write_text(json.dumps(report.export_for_web(result), default=_json_default), encoding="utf-8")
+    report.write_validation(result, out)
+    if not args.smoke:
+        exports = path("data_dir").parent / "exports"
+        exports.mkdir(parents=True, exist_ok=True)
+        (exports / "validation.json").write_text(json.dumps(report.export_for_web(result), default=_json_default), encoding="utf-8")
     log.info("validation written to %s", out)
 
 

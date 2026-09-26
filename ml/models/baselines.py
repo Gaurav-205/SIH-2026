@@ -57,9 +57,11 @@ def static_mme_cv(df: pd.DataFrame, alpha: float = 1.0) -> pd.Series:
 
 def stacking_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, list[str]]:
     Xs = np.log1p(wide(df, "corrected").clip(lower=0)).add_prefix("fc_")
-    ctx_cols = [c for g in CONTEXT for c in FEATURE_GROUPS[g]] + ["cons_median_log", "cons_sd_log", "n_sources"]
+    # lead is part of the row index (GROUP), so it is added back as a column rather than selected
+    ctx_cols = [c for g in CONTEXT for c in FEATURE_GROUPS[g] if c not in GROUP] + ["cons_median_log", "cons_sd_log", "n_sources"]
     ctx = df.drop_duplicates(GROUP).set_index(GROUP)[ctx_cols].loc[Xs.index]
     X = pd.concat([Xs, ctx], axis=1)
+    X["lead"] = X.index.get_level_values("lead").astype(int)
     y = df.drop_duplicates(GROUP).set_index(GROUP)["obs"].loc[X.index]
     return X, y, list(X.columns)
 
@@ -72,7 +74,6 @@ def stacking_cv(df: pd.DataFrame, quantiles=(0.1, 0.5, 0.9)) -> pd.DataFrame:
     idx = X.index.to_frame(index=False)
     sb = config()["stage_b"]
     base = dict(sb["lightgbm"]) | {"verbosity": -1, "seed": 26081, "deterministic": True, "force_row_wise": True}
-    base["monotone_constraints"] = [0] * len(feats)
     out = pd.DataFrame(index=X.index, columns=["mean"] + [f"q{int(q * 100)}" for q in quantiles], dtype=float)
     cat = [c for c in ("terrain_code", "regime_code_issue") if c in feats]
     for k, m, months, test, usable in _folds(idx["date"]):

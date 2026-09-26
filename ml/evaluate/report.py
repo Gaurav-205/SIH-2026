@@ -19,13 +19,14 @@ def md_table(df: pd.DataFrame, cols: list[str], nd: int = 2) -> str:
     return head + body
 
 
-def figures(result: dict) -> list[str]:
+def figures(result: dict, out_dir=None) -> list[str]:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig_dir = path("reports_dir", "figures")
+    fig_dir = (out_dir or path("reports_dir")) / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
     made = []
     s = pd.DataFrame(result["scores"])
 
@@ -95,8 +96,9 @@ def figures(result: dict) -> list[str]:
     return made
 
 
-def write_validation(result: dict) -> None:
-    figs = figures(result)
+def write_validation(result: dict, out_dir=None) -> None:
+    out_dir = out_dir or path("reports_dir")
+    figs = figures(result, out_dir)
     s = pd.DataFrame(result["scores"])
     b = result["chosen_stage_b"]
     lines = [
@@ -133,7 +135,7 @@ def write_validation(result: dict) -> None:
               "## Stage B feature importance (gain share, top 15)", "",
               md_table(pd.DataFrame(result["importance"]).head(15), ["feature", "gain_share"], 3), "",
               "## Figures", ""] + [f"![{f}]({f})" for f in figs]
-    (path("reports_dir") / "validation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (out_dir / "validation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def export_for_web(result: dict) -> dict:
