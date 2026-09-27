@@ -69,6 +69,16 @@ interface SessionState {
   deleteAccount: (password: string) => Promise<void>;
 }
 
+// Migrate legacy session key if present
+try {
+  const legacy = localStorage.getItem("atmosfusion.session");
+  if (legacy && !localStorage.getItem("bharosa.session")) {
+    localStorage.setItem("bharosa.session", legacy);
+  }
+} catch {
+  // localStorage may be unavailable in private browsing or tests
+}
+
 export const useSession = create<SessionState>()(
   persist(
     (set, get) => ({
@@ -131,7 +141,7 @@ export const useSession = create<SessionState>()(
       },
     }),
     {
-      name: "atmosfusion.session",
+      name: "bharosa.session",
       partialize: (s) => ({ mode: s.mode, token: s.token, user: s.user }),
     }
   )

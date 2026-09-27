@@ -1,5 +1,5 @@
 /**
- * AtmosFusion design system primitives.
+ * Bharosa design system primitives.
  * Colours come from semantic tokens (canvas, surface, line, fg, muted, accent, ok, warn, danger).
  */
 import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
@@ -140,29 +140,39 @@ export function Card({
   title,
   description,
   action,
+  badge,
   children,
+  footer,
   className,
   bodyClassName,
 }: {
   title?: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
+  badge?: ReactNode;
   children: ReactNode;
+  footer?: ReactNode;
   className?: string;
   bodyClassName?: string;
 }) {
   return (
-    <section className={cx("card", className)}>
-      {(title || action) && (
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+    <section className={cx("card transition-shadow duration-150 hover:shadow-card", className)}>
+      {(title || action || badge) && (
+        <header className="flex items-start justify-between gap-4 border-b border-line/80 px-5 py-3.5">
           <div className="min-w-0">
-            {title && <h2 className="text-sm font-semibold text-fg">{title}</h2>}
-            {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
+            {title && (
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold tracking-tight text-fg">{title}</h2>
+                {badge}
+              </div>
+            )}
+            {description && <p className="mt-0.5 text-xs text-muted leading-relaxed">{description}</p>}
           </div>
-          {action && <div className="flex-shrink-0">{action}</div>}
+          {action && <div className="flex-shrink-0 pt-0.5">{action}</div>}
         </header>
       )}
       <div className={cx("p-5", bodyClassName)}>{children}</div>
+      {footer && <footer className="border-t border-line/80 bg-subtle/40 px-5 py-3 text-xs text-muted rounded-b-xl">{footer}</footer>}
     </section>
   );
 }
@@ -170,15 +180,15 @@ export function Card({
 type Tone = "neutral" | "accent" | "ok" | "warn" | "danger";
 const TONES: Record<Tone, string> = {
   neutral: "bg-subtle text-muted border-line",
-  accent: "bg-accent-soft text-accent border-accent/20",
-  ok: "bg-ok-soft text-ok border-ok/20",
-  warn: "bg-warn-soft text-warn border-warn/25",
-  danger: "bg-danger-soft text-danger border-danger/20",
+  accent: "bg-fg text-surface border-fg font-semibold",
+  ok: "bg-subtle text-fg border-line font-medium",
+  warn: "bg-subtle text-fg border-fg/30 font-medium",
+  danger: "bg-fg text-surface border-fg font-semibold",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium", TONES[tone], className)}>
+    <span className={cx("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-tight", TONES[tone], className)}>
       {children}
     </span>
   );
@@ -188,7 +198,7 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
   return (
     <div role="status" className="grid min-h-[200px] place-items-center text-sm text-muted">
       <span className="inline-flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        <Loader2 className="h-4 w-4 animate-spin text-fg" aria-hidden="true" />
         {label}…
       </span>
     </div>
@@ -197,25 +207,25 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
 
 export function Logo({ className, showText = true }: { className?: string; showText?: boolean }) {
   return (
-    <span className={cx("inline-flex items-center gap-2", className)}>
+    <span className={cx("inline-flex items-center gap-2.5", className)}>
       <svg viewBox="0 0 32 32" className="h-7 w-7 flex-shrink-0" aria-hidden="true">
-        <rect width="32" height="32" rx="8" className="fill-accent" />
-        <path d="M7 19c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M7 13c3-4 6-4 9 0s6 4 9 0" fill="none" stroke="white" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round" />
+        <rect width="32" height="32" rx="8" className="fill-fg" />
+        <path d="M7 19c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="rgb(var(--surface))" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M7 13c3-4 6-4 9 0s6 4 9 0" fill="none" stroke="rgb(var(--surface))" strokeOpacity=".6" strokeWidth="2" strokeLinecap="round" />
       </svg>
-      {showText && <span className="text-[15px] font-semibold tracking-tight text-fg">AtmosFusion</span>}
+      {showText && <span className="text-[15px] font-bold tracking-tight text-fg">Bharosa</span>}
     </span>
   );
 }
 
 export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-col justify-between gap-4 border-b border-line/60 pb-5 sm:flex-row sm:items-end">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>}
+        <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">{title}</h1>
+        {description && <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">{actions}</div>}
     </div>
   );
 }
@@ -226,28 +236,40 @@ export function Stat({
   sub,
   tone = "neutral",
   icon,
+  badge,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: Tone;
   icon?: ReactNode;
+  badge?: ReactNode;
 }) {
   const ring: Record<Tone, string> = {
-    neutral: "bg-subtle text-muted",
-    accent: "bg-accent-soft text-accent",
-    ok: "bg-ok-soft text-ok",
-    warn: "bg-warn-soft text-warn",
-    danger: "bg-danger-soft text-danger",
+    neutral: "bg-subtle text-muted border-line",
+    accent: "bg-fg text-surface border-fg",
+    ok: "bg-subtle text-fg border-line",
+    warn: "bg-subtle text-fg border-line",
+    danger: "bg-fg text-surface border-fg",
+  };
+  const borderTone: Record<Tone, string> = {
+    neutral: "border-line",
+    accent: "border-fg/30 hover:border-fg/60",
+    ok: "border-line hover:border-fg/40",
+    warn: "border-line hover:border-fg/40",
+    danger: "border-fg/40 hover:border-fg",
   };
   return (
-    <div className="card p-4 sm:p-5">
+    <div className={cx("card relative overflow-hidden p-4 sm:p-5 transition-all duration-150 hover:shadow-pop", borderTone[tone])}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-muted">{label}</p>
-        {icon && <span className={cx("grid h-8 w-8 place-items-center rounded-lg", ring[tone])}>{icon}</span>}
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
+        <div className="flex items-center gap-1.5">
+          {badge}
+          {icon && <span className={cx("grid h-8 w-8 place-items-center rounded-lg border", ring[tone])}>{icon}</span>}
+        </div>
       </div>
-      <p className="num mt-3 text-xl font-semibold tracking-tight text-fg sm:text-2xl">{value}</p>
-      {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
+      <p className="num mt-2.5 text-2xl font-bold tracking-tight text-fg sm:text-3xl">{value}</p>
+      {sub && <p className="mt-1.5 text-xs text-muted line-clamp-2 leading-relaxed">{sub}</p>}
     </div>
   );
 }

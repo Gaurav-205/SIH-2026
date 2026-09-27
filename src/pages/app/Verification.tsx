@@ -5,10 +5,10 @@ import { Badge, Card, PageHeader, Segmented, Stat } from "@/components/ui";
 import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
 import { useCycle, useScorecard, type ScoreRow } from "@/data/cycle";
-import { sourceColor } from "@/lib/imd";
 import ValidationPanel from "./ValidationPanel";
 
-const BLEND = "AtmosFusion (Stage A)";
+const BLEND = "Bharosa (Stage A)";
+const BLEND_ALT = "AtmosFusion (Stage A)";
 const EQUAL = "Equal-weight mean";
 const num = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? "—" : v.toFixed(d));
 type Period = "test_monsoon_2025" | "all_verified";
@@ -39,11 +39,12 @@ export default function Verification() {
     rows.filter((r) => r.lead === lead).forEach((r) => by.set(r.method, r));
     return [...by.values()].sort((a, b) => a.rmse - b.rmse);
   }, [rows, lead]);
-  const blend = methods.find((m) => m.method === BLEND);
+  const blend = methods.find((m) => m.method === BLEND || m.method === BLEND_ALT);
+  const blendKey = blend?.method ?? BLEND;
   const singles = methods.filter((m) => m.family !== "blend");
   const best = singles[0];
   const equal = methods.find((m) => m.method === EQUAL);
-  const chartMethods = [BLEND, EQUAL, ...singles.slice(0, 4).map((m) => m.method)];
+  const chartMethods = [blendKey, EQUAL, ...singles.slice(0, 4).map((m) => m.method)];
   const chart = [1, 2, 3, 4, 5].map((l) => {
     const o: Record<string, number | string> = { lead: l };
     rows.filter((r) => r.lead === l && chartMethods.includes(r.method)).forEach((r) => (o[r.method] = r.rmse));
@@ -65,7 +66,7 @@ export default function Verification() {
     <div className="animate-fade-in">
       <PageHeader
         title="Verification"
-        description="Is the blend actually better? Every live model, an equal-weight mean and AtmosFusion, scored on archived forecasts against IMD rain."
+        description="Is the blend actually better? Every live model, an equal-weight mean and Bharosa, scored on archived forecasts against IMD rain."
         actions={
           <>
             <Segmented label="Period" value={period} onChange={setPeriod} options={[{ value: "test_monsoon_2025", label: "Monsoon 2025 (test)" }, { value: "all_verified", label: "All verified" }]} />
@@ -79,7 +80,7 @@ export default function Verification() {
             <div className="mb-6 flex gap-2 rounded-lg border border-line bg-subtle px-4 py-3 text-sm text-muted">
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>
-                Truth: {s.truth}. Period {s.periods[period]?.start} to {s.periods[period]?.end}, {s.points} districts. AtmosFusion uses only errors known before each
+                Truth: {s.truth}. Period {s.periods[period]?.start} to {s.periods[period]?.end}, {s.points} districts. Bharosa uses only errors known before each
                 forecast was issued, and its settings are the plan's defaults (nothing tuned on this data). Each method is scored on the days it has archived forecasts
                 (n below); 95% intervals from a 5-day block bootstrap. Generated {s.generated_at.slice(0, 16).replace("T", " ")} UTC.
               </p>
@@ -96,7 +97,7 @@ export default function Verification() {
               <>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Stat
-                    label="AtmosFusion RMSE"
+                    label="Bharosa RMSE"
                     value={`${num(blend?.rmse)} mm`}
                     sub={blend ? `95% CI ${num(blend.rmse_lo)}–${num(blend.rmse_hi)} · n = ${blend.n}` : "Not enough data"}
                     tone="accent"
@@ -125,8 +126,8 @@ export default function Verification() {
                           contentStyle={{ background: "rgb(var(--surface))", border: "1px solid rgb(var(--line))", borderRadius: 8, fontSize: 12 }} />
                         {chartMethods.map((m, i) => (
                           <Line key={m} type="monotone" dataKey={m} isAnimationActive={false} connectNulls
-                            stroke={m === BLEND ? "rgb(var(--accent))" : m === EQUAL ? "#98A2B3" : sourceColor(i + 2)}
-                            strokeWidth={m === BLEND ? 3.5 : 1.5} strokeDasharray={m === EQUAL ? "4 4" : undefined} dot={{ r: m === BLEND ? 4 : 2 }} />
+                            stroke={m === BLEND ? "rgb(var(--fg))" : m === EQUAL ? "rgb(var(--muted))" : ["#71717a", "#a1a1aa", "#52525b", "#3f3f46"][i % 4]}
+                            strokeWidth={m === BLEND ? 3 : 1.5} strokeDasharray={m === EQUAL ? "4 4" : undefined} dot={{ r: m === BLEND ? 3.5 : 2 }} />
                         ))}
                       </LineChart>
                     </ResponsiveContainer>
@@ -150,7 +151,7 @@ export default function Verification() {
                       </thead>
                       <tbody className="divide-y divide-line">
                         {methods.map((m) => (
-                          <tr key={m.method} className={cx(m.method === BLEND && "bg-accent-soft/60 font-semibold text-accent")}>
+                          <tr key={m.method} className={cx(m.method === BLEND && "bg-subtle font-bold text-fg")}>
                             <td className="px-5 py-2">{m.label}</td>
                             <td className="num px-2 py-2 text-right">{m.n}</td>
                             <td className="num px-2 py-2 text-right">{num(m.mae, 2)}</td>

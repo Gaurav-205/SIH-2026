@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, PageHeader, Segmented } from "@/components/ui";
+import { Badge, Card, PageHeader, Segmented } from "@/components/ui";
 import DistrictMap from "@/components/DistrictMap";
 import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
@@ -13,7 +13,7 @@ type View = "p10" | "blend" | "p90" | "equal_mean";
 
 const VIEWS: { value: View; label: string; help: string }[] = [
   { value: "p10", label: "Best case", help: "10th percentile: 9 in 10 chance of more rain than this" },
-  { value: "blend", label: "Most likely", help: "The AtmosFusion blend" },
+  { value: "blend", label: "Most likely", help: "The Bharosa blend" },
   { value: "p90", label: "Worst case", help: "90th percentile: 1 in 10 chance of more rain than this" },
   { value: "equal_mean", label: "Equal mean", help: "Plain average of all live models, for comparison" },
 ];
@@ -61,7 +61,7 @@ export default function Forecast() {
               <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="IMD rainfall categories">
                 {[...IMD_CATEGORIES].reverse().map((cat) => (
                   <li key={cat.label} className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: cat.color }} />
+                    <span className="h-2.5 w-2.5 rounded-full border border-line" style={{ background: cat.color }} />
                     {cat.label} {cat.min > 0 ? `≥ ${cat.min}` : ""}
                   </li>
                 ))}
@@ -69,34 +69,37 @@ export default function Forecast() {
             </Card>
 
             <Card title="By district" description="mm per 24 h; sorted by the blend" bodyClassName="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-xs text-muted">
-                    <th className="px-5 py-2.5 font-medium">District</th>
-                    <th className="px-2 py-2.5 text-right font-medium">Best</th>
-                    <th className="px-2 py-2.5 text-right font-medium">Likely</th>
-                    <th className="px-2 py-2.5 text-right font-medium">Worst</th>
-                    <th className="py-2.5 pl-2 pr-5 text-right font-medium">Equal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {rows.map(({ p, f }) => (
-                    <tr key={p.id}>
-                      <td className="px-5 py-2.5 text-fg">
-                        <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="hover:underline">
-                          {p.name}
-                        </Link>
-                        {f.method !== "stage_a" && <span className="ml-1 text-xs text-muted" title="Equal weights: no verified history yet">*</span>}
-                      </td>
-                      <td className="num px-2 py-2.5 text-right text-muted">{f.p10.toFixed(0)}</td>
-                      <td className="num px-2 py-2.5 text-right font-medium text-fg">{f.blend.toFixed(1)}</td>
-                      <td className={cx("num px-2 py-2.5 text-right", f.p90 >= 204.5 ? "font-semibold text-danger" : f.p90 >= 115.6 ? "font-medium text-warn" : "text-muted")}>{f.p90.toFixed(0)}</td>
-                      <td className="num py-2.5 pl-2 pr-5 text-right text-muted">{f.equal_mean.toFixed(1)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-line bg-subtle/50 text-left text-muted">
+                      <th className="px-4 py-2.5 font-semibold">District</th>
+                      <th className="px-2 py-2.5 text-right font-semibold">Best (P10)</th>
+                      <th className="px-2 py-2.5 text-right font-semibold">Blend</th>
+                      <th className="px-2 py-2.5 text-right font-semibold">Worst (P90)</th>
+                      <th className="py-2.5 pl-2 pr-4 text-right font-semibold">Equal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {rows.some((r) => r.f.method !== "stage_a") && <p className="px-5 py-3 text-xs text-muted">* Equal weights: its models don't have enough verified days here yet.</p>}
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {rows.map(({ p, f }) => (
+                      <tr key={p.id} className="hover:bg-subtle/40 transition-colors">
+                        <td className="px-4 py-2.5 text-fg">
+                          <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="font-medium hover:text-accent hover:underline">
+                            {p.name}
+                          </Link>
+                          {f.alert_level && <Badge tone={f.alert_level === "Red" ? "danger" : "warn"} className="ml-1.5">{f.alert_level}</Badge>}
+                          {f.method !== "stage_a" && <span className="ml-1 text-xs text-muted" title="Equal weights: no verified history yet">*</span>}
+                        </td>
+                        <td className="num px-2 py-2.5 text-right text-muted">{f.p10.toFixed(0)}</td>
+                        <td className="num px-2 py-2.5 text-right font-bold text-fg">{f.blend.toFixed(1)}</td>
+                        <td className={cx("num px-2 py-2.5 text-right font-semibold", f.p90 >= 204.5 ? "font-bold text-fg underline decoration-line/80" : f.p90 >= 115.6 ? "text-fg" : "text-muted")}>{f.p90.toFixed(0)}</td>
+                        <td className="num py-2.5 pl-2 pr-4 text-right text-muted">{f.equal_mean.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {rows.some((r) => r.f.method !== "stage_a") && <p className="px-4 py-3 text-xs text-muted border-t border-line/60">* Equal weights: its models don't have enough verified days here yet.</p>}
             </Card>
           </div>
         )}

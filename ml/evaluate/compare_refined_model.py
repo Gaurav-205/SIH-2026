@@ -8,9 +8,9 @@ Generates:
 
 import numpy as np
 import pandas as pd
-from ml.live.stage_a import load_truth, load_archive
+
 from ml.evaluate import scores
-from ml.common import config
+from ml.live.stage_a import load_archive, load_truth
 
 print("Loading IMD verified truth and forecast archive...")
 truth = load_truth()
@@ -74,7 +74,7 @@ def run_evaluation(half_life=14, power=1.5, lo=0.55, hi=1.85):
                 continue
                 
             obs = sub["obs"].iloc[0]
-            raw_vals = dict(zip(sub["source"], sub["value"]))
+            raw_vals = dict(zip(sub["source"], sub["value"], strict=False))
             eq_mean = float(np.mean(list(raw_vals.values())))
             
             # Baseline Stage A
@@ -91,7 +91,7 @@ def run_evaluation(half_life=14, power=1.5, lo=0.55, hi=1.85):
                     corr_a_list.append(v)
                     w_a_list.append(1.0)
             tot_wa = sum(w_a_list)
-            base_stage_a = sum((w / tot_wa) * c for w, c in zip(w_a_list, corr_a_list))
+            base_stage_a = sum((w / tot_wa) * c for w, c in zip(w_a_list, corr_a_list, strict=False))
             
             # Refined Stage A+:
             # 1. Power 1.5 instead of 2.0
@@ -112,7 +112,7 @@ def run_evaluation(half_life=14, power=1.5, lo=0.55, hi=1.85):
                     corr_ref_list.append(v)
                     w_ref_list.append(1.0)
             tot_wref = sum(w_ref_list)
-            refined_stage_a = sum((w / tot_wref) * c for w, c in zip(w_ref_list, corr_ref_list))
+            refined_stage_a = sum((w / tot_wref) * c for w, c in zip(w_ref_list, corr_ref_list, strict=False))
             
             rec = {
                 "date": d,
@@ -150,7 +150,7 @@ print("\n" + "=" * 90)
 print(f"{'OVERALL COMPARISON ON PUNE & MUMBAI (Lead 1 Rain)':^90}")
 print("=" * 90)
 models_to_report = [
-    ("Refined Blend (AtmosFusion)", "refined_blend"),
+    ("Refined Blend (Bharosa)", "refined_blend"),
     ("Base Stage A Blend", "base_stage_a"),
     ("Equal-Weight Ensemble Mean", "equal_mean"),
     ("GEFS Ensemble Mean", "gefs_ens"),
@@ -165,35 +165,42 @@ models_to_report = [
 ]
 
 print(f"{'Model / Pipeline':30s} | {'N':>5s} | {'MAE (mm)':>9s} | {'RMSE (mm)':>9s} | {'Bias (mm)':>9s} | {'Corr':>6s} | {'ETS >64.5':>9s}")
-print("-" * 90)
 for label, col in models_to_report:
     if col in df_eval.columns:
         m_res = calc_metrics(df_eval, col)
-        print(f"{label:30s} | {m_res['n']:5d} | {m_res['mae']:9.2f} | {m_res['rmse']:9.2f} | {m_res['bias']:+9.2f} | {m_res['corr']:6.3f} | {m_res['ets_64_5']:9.3f}")
+        row_str = (
+            f"{label:30s} | {m_res['n']:5d} | {m_res['mae']:9.2f} | "
+            f"{m_res['rmse']:9.2f} | {m_res['bias']:+9.2f} | {m_res['corr']:6.3f} | {m_res['ets_64_5']:9.3f}"
+        )
+        print(row_str)
 
-# Breakdown by District
-print("\n" + "=" * 90)
-print(f"{'LOCATION BREAKDOWN: PUNE-GHATS vs PUNE-PLAINS vs MUMBAI':^90}")
-print("=" * 90)
+    # Breakdown by District
+    print("\n" + "=" * 90)
+    print(f"{'LOCATION BREAKDOWN: PUNE-GHATS vs PUNE-PLAINS vs MUMBAI':^90}")
+    print("=" * 90)
 
-for loc in target_points:
-    sub = df_eval[df_eval["point_id"] == loc]
-    print(f"\n--- {loc.upper()} (N = {len(sub)}) ---")
-    print(f"{'Model / Pipeline':30s} | {'MAE (mm)':>9s} | {'RMSE (mm)':>9s} | {'Bias (mm)':>9s} | {'Corr':>6s} | {'ETS >64.5':>9s}")
-    print("-" * 75)
-    for label, col in [
-        ("Refined Blend (AtmosFusion)", "refined_blend"),
-        ("Base Stage A Blend", "base_stage_a"),
-        ("Equal-Weight Ensemble Mean", "equal_mean"),
-        ("GEFS Ensemble Mean", "gefs_ens"),
-        ("ECMWF AIFS (AI)", "ecmwf_aifs025_single"),
-        ("ECMWF IFS 0.25°", "ecmwf_ifs025"),
-        ("NCEP GFS", "gfs_global"),
-        ("DWD ICON", "icon_global"),
-    ]:
-        if col in sub.columns:
-            m_res = calc_metrics(sub, col)
-            print(f"{label:30s} | {m_res['mae']:9.2f} | {m_res['rmse']:9.2f} | {m_res['bias']:+9.2f} | {m_res['corr']:6.3f} | {m_res['ets_64_5']:9.3f}")
+    for loc in target_points:
+        sub = df_eval[df_eval["point_id"] == loc]
+        print(f"\n--- {loc.upper()} (N = {len(sub)}) ---")
+        print(f"{'Model / Pipeline':30s} | {'MAE (mm)':>9s} | {'RMSE (mm)':>9s} | {'Bias (mm)':>9s} | {'Corr':>6s} | {'ETS >64.5':>9s}")
+        print("-" * 75)
+        for label, col in [
+            ("Refined Blend (Bharosa)", "refined_blend"),
+            ("Base Stage A Blend", "base_stage_a"),
+            ("Equal-Weight Ensemble Mean", "equal_mean"),
+            ("GEFS Ensemble Mean", "gefs_ens"),
+            ("ECMWF AIFS (AI)", "ecmwf_aifs025_single"),
+            ("ECMWF IFS 0.25°", "ecmwf_ifs025"),
+            ("NCEP GFS", "gfs_global"),
+            ("DWD ICON", "icon_global"),
+        ]:
+            if col in sub.columns:
+                m_res = calc_metrics(sub, col)
+                loc_str = (
+                    f"{label:30s} | {m_res['mae']:9.2f} | {m_res['rmse']:9.2f} | "
+                    f"{m_res['bias']:+9.2f} | {m_res['corr']:6.3f} | {m_res['ets_64_5']:9.3f}"
+                )
+                print(loc_str)
 
 # -------------------------------------------------------------
 # 2. DIRECT COMPARISON WITH RECENT CURRENT READINGS (SEPT 2026)
@@ -205,14 +212,14 @@ print("=" * 90)
 # Check recent readings in truth
 rt = truth[(truth["point_id"].isin(target_points)) & (truth["var"] == "rain") & (truth["date"] >= "2026-09-18")].copy()
 rt = rt.sort_values(["date", "point_id"])
-print(f"\nIMD Real-time Verified Rainfall Readings (03:00 - 03:00 UTC):")
+print("\nIMD Real-time Verified Rainfall Readings (03:00 - 03:00 UTC):")
 print(rt[["date", "point_id", "obs"]].to_string(index=False))
 
 # Let's inspect matching forecasts from archive/live for these exact dates
 recent_dates = rt["date"].unique()
 recent_f = m[(m["date"].isin(recent_dates)) & (m["lead"] == 1)]
 if not recent_f.empty:
-    print(f"\nMatching Day-1 Model Forecasts vs Verified Readings:")
+    print("\nMatching Day-1 Model Forecasts vs Verified Readings:")
     piv = recent_f.pivot_table(index=["date", "point_id"], columns="source", values="value", aggfunc="first").reset_index()
     piv = piv.merge(rt[["date", "point_id", "obs"]], on=["date", "point_id"], how="left")
     print(piv.to_string(index=False))

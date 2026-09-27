@@ -98,7 +98,7 @@ export default function Signup() {
           <Field label="Password" type="password" name="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} onBlur={blur("password")} error={touched.password ? errors.password : null} />
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1" aria-label="Password requirements">
             {checks.map((c) => (
-              <li key={c.label} className={cx("flex items-center gap-1 text-xs", c.ok ? "text-ok" : "text-muted")}>
+              <li key={c.label} className={cx("flex items-center gap-1 text-xs", c.ok ? "text-fg font-medium" : "text-muted")}>
                 <Check className={cx("h-3.5 w-3.5", !c.ok && "opacity-40")} aria-hidden="true" />
                 {c.label}
               </li>

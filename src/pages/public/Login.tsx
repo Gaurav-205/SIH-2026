@@ -45,10 +45,10 @@ export default function Login() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Log in to your AtmosFusion workspace."
+      subtitle="Log in to your Bharosa workspace."
       footer={
         <>
-          New to AtmosFusion?{" "}
+          New to Bharosa?{" "}
           <Link to="/signup" className="font-medium text-accent hover:underline">
             Create an account
           </Link>

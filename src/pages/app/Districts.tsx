@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowDown, ArrowUp, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Download, MapPin } from "lucide-react";
 import { Badge, Button, Card, PageHeader, Segmented } from "@/components/ui";
 import DistrictMap from "@/components/DistrictMap";
 import LiveState from "@/components/LiveState";
@@ -20,15 +20,15 @@ function ModelTable({ f, cycle, idx }: { f: ForecastRec; cycle: Cycle; idx: Retu
   const ids = Object.keys(f.values).sort((a, b) => (f.weights[b] ?? -1) - (f.weights[a] ?? -1));
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] text-sm">
+      <table className="w-full min-w-[34rem] text-xs">
         <thead>
-          <tr className="border-b border-line text-left text-xs text-muted">
-            <th className="py-2 font-medium">Model</th>
-            <th className="py-2 text-right font-medium">Forecast</th>
-            <th className="py-2 text-right font-medium">Corrected</th>
-            <th className="py-2 text-right font-medium">Recent error</th>
-            <th className="py-2 text-right font-medium">Bias</th>
-            <th className="py-2 pl-3 font-medium">Weight</th>
+          <tr className="border-b border-line bg-subtle/40 text-left text-muted">
+            <th className="py-2.5 pl-3 pr-2 font-semibold">Model</th>
+            <th className="py-2.5 px-2 text-right font-semibold">Forecast</th>
+            <th className="py-2.5 px-2 text-right font-semibold">Corrected</th>
+            <th className="py-2.5 px-2 text-right font-semibold">Recent error</th>
+            <th className="py-2.5 px-2 text-right font-semibold">Bias</th>
+            <th className="py-2.5 pl-3 pr-3 font-semibold">Weight</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -37,26 +37,26 @@ function ModelTable({ f, cycle, idx }: { f: ForecastRec; cycle: Cycle; idx: Retu
             const sk = f.skill[id];
             const w = f.weights[id];
             return (
-              <tr key={id}>
-                <td className="py-2 pr-2">
+              <tr key={id} className="hover:bg-subtle/40 transition-colors">
+                <td className="py-2.5 pl-3 pr-2">
                   <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: sourceColor(idx.sourceIndex(id)) }} />
-                    <span className="text-fg">{src?.label ?? id}</span>
-                    <span className="hidden text-xs text-muted 2xl:inline">{FAMILY_LABEL[src?.family ?? "physics"]}</span>
+                    <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full border border-line" style={{ background: sourceColor(idx.sourceIndex(id)) }} />
+                    <span className="font-medium text-fg">{src?.label ?? id}</span>
+                    <span className="hidden text-[11px] text-muted 2xl:inline">{FAMILY_LABEL[src?.family ?? "physics"]}</span>
                   </span>
                 </td>
-                <td className="num py-2 text-right text-fg">{f.values[id].toFixed(1)}</td>
-                <td className="num py-2 text-right text-muted">{f.corrected[id] !== undefined ? f.corrected[id].toFixed(1) : "—"}</td>
-                <td className="num py-2 text-right text-muted" title={sk ? `${sk.n} verified days (${sk.scope === "region" ? "pooled over region" : "this district"})` : undefined}>
+                <td className="num py-2.5 px-2 text-right font-semibold text-fg">{f.values[id].toFixed(1)}</td>
+                <td className="num py-2.5 px-2 text-right text-muted">{f.corrected[id] !== undefined ? f.corrected[id].toFixed(1) : "—"}</td>
+                <td className="num py-2.5 px-2 text-right text-muted" title={sk ? `${sk.n} verified days (${sk.scope === "region" ? "pooled over region" : "this district"})` : undefined}>
                   {sk ? `${sk.mae.toFixed(1)} ${unit}` : "—"}
-                  {sk?.scope === "region" && <span className="ml-1 text-[10px]">R</span>}
+                  {sk?.scope === "region" && <span className="ml-1 text-[10px] rounded bg-subtle px-1 py-0.5">R</span>}
                 </td>
-                <td className="num py-2 text-right text-muted">{sk ? `${sk.bias >= 0 ? "+" : ""}${sk.bias.toFixed(1)}` : "—"}</td>
-                <td className="py-2 pl-3">
+                <td className="num py-2.5 px-2 text-right text-muted">{sk ? `${sk.bias >= 0 ? "+" : ""}${sk.bias.toFixed(1)}` : "—"}</td>
+                <td className="py-2.5 pl-3 pr-3">
                   {w !== undefined ? (
                     <span className="flex items-center gap-2">
-                      <span className="h-1.5 w-20 rounded-full bg-subtle">
-                        <span className="block h-1.5 rounded-full" style={{ width: `${w * 100}%`, background: sourceColor(idx.sourceIndex(id)) }} />
+                      <span className="h-1.5 w-20 rounded-full bg-subtle overflow-hidden">
+                        <span className="block h-1.5 rounded-full transition-all" style={{ width: `${w * 100}%`, background: sourceColor(idx.sourceIndex(id)) }} />
                       </span>
                       <span className="num w-10 text-right text-xs font-semibold text-fg">{(w * 100).toFixed(0)}%</span>
                     </span>
@@ -69,7 +69,7 @@ function ModelTable({ f, cycle, idx }: { f: ForecastRec; cycle: Cycle; idx: Retu
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-2.5 text-xs text-muted">
         {f.method === "stage_a"
           ? `Recent error = decaying-average absolute error against ${f.var === "wind" ? cycle.truth.wind : f.var === "tmax" ? cycle.truth.tmax : cycle.truth.rain}. R = pooled over the region.`
           : "No model has enough verified days here yet, so this is an equal-weight mean."}
@@ -102,11 +102,11 @@ function Outlook({ pointId, idx, cycle, lead }: { pointId: string; idx: ReturnTy
               );
             }}
           />
-          <ReferenceLine x={`D${lead}`} stroke="rgb(var(--accent))" strokeDasharray="3 3" />
+          <ReferenceLine x={`D${lead}`} stroke="rgb(var(--fg))" strokeDasharray="3 3" />
           <Area dataKey="p10" stackId="b" stroke="none" fill="transparent" isAnimationActive={false} />
-          <Area dataKey="band" stackId="b" stroke="none" fill="rgb(var(--accent))" fillOpacity={0.14} isAnimationActive={false} />
+          <Area dataKey="band" stackId="b" stroke="none" fill="rgb(var(--fg))" fillOpacity={0.08} isAnimationActive={false} />
           <Line dataKey="avg" stroke="rgb(var(--muted))" strokeDasharray="4 4" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-          <Line dataKey="p50" stroke="rgb(var(--accent))" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
+          <Line dataKey="p50" stroke="rgb(var(--fg))" strokeWidth={2} dot={{ r: 2, fill: "rgb(var(--fg))" }} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
       <p className="-mt-1 text-xs text-muted">Model run {cycle.issue.init_utc.slice(0, 16).replace("T", " ")} UTC · band = 10th–90th percentile · dashed = equal-weight mean</p>
@@ -134,7 +134,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
         {/* Air Quality */}
         {tel.air_quality && (
           <div className="rounded-lg border border-line bg-subtle/50 p-3">
-            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Air Quality (SAFAR)</span>
+            <span className="text-xs font-semibold text-fg uppercase tracking-wider">Air Quality (SAFAR)</span>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-bold text-fg">AQI {tel.air_quality.european_aqi ?? "—"}</span>
               <Badge tone={(tel.air_quality.european_aqi ?? 0) > 75 ? "danger" : (tel.air_quality.european_aqi ?? 0) > 50 ? "warn" : "ok"}>
@@ -151,7 +151,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
         {/* Catchment & Surface */}
         {tel.surface && (
           <div className="rounded-lg border border-line bg-subtle/50 p-3">
-            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Catchment & Soil Moisture</span>
+            <span className="text-xs font-semibold text-fg uppercase tracking-wider">Catchment & Soil Moisture</span>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-bold text-fg">{tel.surface.relative_humidity_2m ?? "—"}%</span>
               <span className="text-xs font-medium text-muted">Humidity</span>
@@ -166,7 +166,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
         {/* Marine Swells for Coastal */}
         {tel.is_coastal && tel.marine && (
           <div className="rounded-lg border border-line bg-subtle/50 p-3">
-            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Arabian Sea Swell</span>
+            <span className="text-xs font-semibold text-fg uppercase tracking-wider">Arabian Sea Swell</span>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-bold text-fg">{tel.marine.wave_height?.toFixed(2) ?? "—"} m</span>
               <span className="text-xs font-medium text-muted">Wave Height</span>
@@ -186,7 +186,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
           href={tel.radar.pune_dwr}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-fg transition"
         >
           📡 IMD Pune Doppler Radar (Pashan)
         </a>
@@ -194,7 +194,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
           href={tel.radar.mumbai_dwr}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-fg transition"
         >
           📡 IMD Mumbai Doppler Radar (Colaba)
         </a>
@@ -202,7 +202,7 @@ function StationTelemetryCard({ pointId }: { pointId: string }) {
           href={tel.radar.satellite_ir}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-accent hover:text-accent transition"
+          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-fg hover:border-fg transition"
         >
           🛰️ INSAT Satellite IR Nowcast
         </a>
@@ -256,47 +256,69 @@ export default function Districts() {
         {c && selected && (
           <div className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
             <div className="space-y-4">
-              {region === "konkan" && (
-                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface/70 p-2">
-                  <span className="text-xs font-semibold text-accent pr-1">Target Focus:</span>
-                  <button
-                    type="button"
-                    onClick={() => setParam("district", "pune-ghats")}
-                    className={cx(
-                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
-                      selected.id === "pune-ghats"
-                        ? "bg-accent text-white shadow-sm"
-                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
-                    )}
-                  >
-                    📍 Pune Ghats (Western Catchment)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParam("district", "pune-plains")}
-                    className={cx(
-                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
-                      selected.id === "pune-plains"
-                        ? "bg-accent text-white shadow-sm"
-                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
-                    )}
-                  >
-                    📍 Pune Plains / City
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParam("district", "mumbai")}
-                    className={cx(
-                      "rounded-md px-2.5 py-1 text-xs font-medium transition",
-                      selected.id === "mumbai"
-                        ? "bg-accent text-white shadow-sm"
-                        : "border border-line bg-canvas text-muted hover:text-fg hover:border-accent/40"
-                    )}
-                  >
-                    📍 Mumbai (Coastal MMR)
-                  </button>
+              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative flex-1">
+                    <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" />
+                    <select
+                      aria-label={`Select district in ${REGIONS[region].name}`}
+                      value={selected.id}
+                      onChange={(e) => setParam("district", e.target.value)}
+                      className="block h-9 w-full appearance-none rounded-lg border border-line bg-canvas pl-9 pr-8 text-xs font-semibold text-fg shadow-xs transition-colors hover:border-muted focus:border-fg focus:outline-none"
+                    >
+                      {points.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-muted" />
+                  </div>
                 </div>
-              )}
+
+                {region === "konkan" && (
+                  <div className="flex flex-wrap items-center gap-1.5 border-t border-line/60 pt-2.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted pr-1">Target Focus:</span>
+                    <button
+                      type="button"
+                      onClick={() => setParam("district", "pune-ghats")}
+                      className={cx(
+                        "rounded-md px-2.5 py-1 text-xs font-medium transition shadow-xs",
+                        selected.id === "pune-ghats"
+                          ? "bg-fg text-surface"
+                          : "border border-line bg-canvas text-muted hover:text-fg hover:border-fg/40"
+                      )}
+                    >
+                      Pune Ghats
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParam("district", "pune-plains")}
+                      className={cx(
+                        "rounded-md px-2.5 py-1 text-xs font-medium transition shadow-xs",
+                        selected.id === "pune-plains"
+                          ? "bg-fg text-surface"
+                          : "border border-line bg-canvas text-muted hover:text-fg hover:border-fg/40"
+                      )}
+                    >
+                      Pune Plains
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParam("district", "mumbai")}
+                      className={cx(
+                        "rounded-md px-2.5 py-1 text-xs font-medium transition shadow-xs",
+                        selected.id === "mumbai"
+                          ? "bg-fg text-surface"
+                          : "border border-line bg-canvas text-muted hover:text-fg hover:border-fg/40"
+                      )}
+                    >
+                      Mumbai MMR
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <DistrictMap
                 points={points.map((p) => ({ ...p, alert: idx.get(p.id, lead, "rain")?.alert_level }))}
                 selectedId={selected.id}
@@ -305,20 +327,9 @@ export default function Districts() {
                 valueOf={(p) => `${(idx.get(p.id, lead, "rain")?.blend ?? 0).toFixed(0)} mm`}
                 className="h-[440px]"
               />
-              <label className="block text-xs font-medium text-muted">
-                District ({REGIONS[region].name})
-                <select
-                  value={selected.id}
-                  onChange={(e) => setParam("district", e.target.value)}
-                  className="mt-1 block h-9 w-full rounded-lg border border-line bg-surface px-2 text-sm text-fg focus:border-accent focus:outline-none"
-                >
-                  {points.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </label>
+
               {rain && (
-                <Card title="5-day rain outlook" description={selected.name}>
+                <Card title="5-day rain outlook" description={`Confidence band for ${selected.name}`}>
                   <Outlook pointId={selected.id} idx={idx} cycle={c} lead={lead} />
                 </Card>
               )}
@@ -342,19 +353,32 @@ export default function Districts() {
               >
                 {f ? (
                   <>
-                    <dl className="grid grid-cols-3 gap-3">
-                      {[
-                        { k: "AtmosFusion blend", val: f.blend, cls: "text-accent" },
-                        { k: "Equal-weight mean", val: f.equal_mean, cls: "text-muted" },
-                        { k: "Range (P10–P90)", val: null, cls: "text-fg" },
-                      ].map((x) => (
-                        <div key={x.k} className="rounded-lg bg-subtle p-3">
-                          <dt className="text-xs text-muted">{x.k}</dt>
-                          <dd className={cx("num mt-1 text-lg font-semibold", x.cls)}>
-                            {x.val === null ? `${f.p10.toFixed(0)}–${f.p90.toFixed(0)}` : x.val.toFixed(1)} <span className="text-xs font-normal">{UNITS[v]}</span>
-                          </dd>
-                        </div>
-                      ))}
+                    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-line bg-subtle/50 p-3.5 shadow-xs">
+                        <dt className="text-xs font-semibold uppercase tracking-wider text-fg">Bharosa Blend</dt>
+                        <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
+                          {f.blend.toFixed(1)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>
+                        </dd>
+                        <dd className="mt-1 text-[11px] text-muted">Adaptive skill-weighted</dd>
+                      </div>
+
+                      <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+                        <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Equal-Weight Mean</dt>
+                        <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
+                          {f.equal_mean.toFixed(1)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>
+                        </dd>
+                        <dd className="mt-1 text-[11px] text-muted">
+                          Delta: <b className="text-fg">{f.blend - f.equal_mean >= 0 ? "+" : ""}{(f.blend - f.equal_mean).toFixed(1)}</b> {UNITS[v]}
+                        </dd>
+                      </div>
+
+                      <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+                        <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Uncertainty (P10–P90)</dt>
+                        <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
+                          {f.p10.toFixed(0)}–{f.p90.toFixed(0)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>
+                        </dd>
+                        <dd className="mt-1 text-[11px] text-muted">80% predictive interval</dd>
+                      </div>
                     </dl>
                     <h3 className="mb-2 mt-5 text-sm font-semibold text-fg">{VAR_LABEL[v]} by model</h3>
                     <ModelTable f={f} cycle={c} idx={idx} />

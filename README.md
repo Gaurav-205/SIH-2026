@@ -1,4 +1,4 @@
-# AtmosFusion — Hybrid AI–NWP Multi-Model Forecast Blending
+# Bharosa — Hybrid AI–NWP Multi-Model Forecast Blending
 
 > **SIH26081 · NCMRWF, Ministry of Earth Sciences**
 > Blends physics, AI and ensemble forecasts for 29 districts in Konkan & Goa and Kerala. Each model is weighted by how well it has recently verified against IMD observations at that place and lead time.

@@ -56,18 +56,18 @@ function icon(color: string, selected: boolean, alertColor: string | null, name:
     right: `top:0;left:${box / 2 + 4}px;transform:translateY(-50%);`,
     left: `top:0;right:${box / 2 + 4}px;transform:translateY(-50%);`,
   }[side];
-  const labelBg = dark ? "rgba(17,25,41,0.92)" : "rgba(255,255,255,0.95)";
-  const labelFg = dark ? "#e7ecf4" : "#101828";
-  const border = selected ? color : dark ? "rgba(38,50,74,1)" : "rgba(228,231,236,1)";
+  const labelBg = dark ? "rgba(9,9,11,0.95)" : "rgba(255,255,255,0.96)";
+  const labelFg = dark ? "#fafafa" : "#09090b";
+  const border = selected ? (dark ? "#fafafa" : "#09090b") : dark ? "rgba(39,39,42,1)" : "rgba(228,228,231,1)";
   return L.divIcon({
     className: "",
     html: `<div style="position:relative;width:0;height:0;cursor:pointer;">
       <div style="position:absolute;left:${-box / 2}px;top:${-box / 2}px;width:${box}px;height:${box}px;display:flex;align-items:center;justify-content:center;">
         ${alertRing}
-        <div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 1px 4px rgba(16,24,40,.35);position:relative;z-index:1;"></div>
+        <div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid ${dark ? '#09090b' : '#ffffff'};box-shadow:0 1px 4px rgba(0,0,0,.35);position:relative;z-index:1;"></div>
       </div>
-      <div style="position:absolute;${pos}white-space:nowrap;font:600 11px Inter,system-ui,sans-serif;color:${labelFg};background:${labelBg};border:1px solid ${border};border-radius:6px;padding:2px 7px;box-shadow:0 1px 2px rgba(16,24,40,.08);display:flex;gap:6px;align-items:center;">
-        ${selected ? `<span>${esc(name)}</span>` : ""}<span style="color:${color};font-family:'JetBrains Mono',monospace;">${esc(value)}</span>
+      <div style="position:absolute;${pos}white-space:nowrap;font:600 11px Inter,system-ui,sans-serif;color:${labelFg};background:${labelBg};border:1px solid ${border};border-radius:6px;padding:2px 7px;box-shadow:0 1px 2px rgba(0,0,0,.15);display:flex;gap:6px;align-items:center;">
+        ${selected ? `<span>${esc(name)}</span>` : ""}<span style="color:${dark ? '#fafafa' : '#09090b'};font-family:'JetBrains Mono',monospace;">${esc(value)}</span>
       </div>
     </div>`,
     iconSize: [0, 0],

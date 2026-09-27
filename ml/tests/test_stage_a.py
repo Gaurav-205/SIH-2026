@@ -64,11 +64,11 @@ def test_weights_sum_to_one_and_favour_low_error():
 
 
 def test_rain_bias_correction_uses_the_recent_ratio():
-    fc, tr = archive(days=40, errors={"a": 20.0})  # source a forecasts 40 mm when 20 mm fell: ~2x too wet
+    fc, tr = archive(days=40, errors={"a": 10.0})  # source a forecasts 30 mm when 20 mm fell: ~1.5x too wet
     skill = at_point(ledger(fc, tr, pd.Timestamp("2024-07-31")))
     b = blend_one("rain", {"a": 60.0}, skill)
     ratio = (skill.loc["a", "sum_fc"] + 1) / (skill.loc["a", "sum_obs"] + 1)
-    assert 1.9 < ratio < 2.0
+    assert 1.4 < ratio < 1.6
     assert b["corrected"]["a"] == pytest.approx(60.0 / ratio)  # roughly halved: ~30 mm
 
 

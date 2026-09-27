@@ -32,11 +32,11 @@ function Choice({ selected, onClick, title, body }: { selected: boolean; onClick
       aria-checked={selected}
       onClick={onClick}
       className={cx(
-        "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-        selected ? "border-accent bg-accent-soft ring-4 ring-accent/10" : "border-line bg-surface hover:border-muted/40"
+        "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all",
+        selected ? "border-fg bg-subtle shadow-sm" : "border-line bg-surface hover:border-fg/40"
       )}
     >
-      <span className={cx("mt-0.5 grid h-5 w-5 flex-shrink-0 place-items-center rounded-full border", selected ? "border-accent bg-accent text-accent-fg" : "border-line")}>
+      <span className={cx("mt-0.5 grid h-5 w-5 flex-shrink-0 place-items-center rounded-full border", selected ? "border-fg bg-fg text-surface" : "border-line")}>
         {selected && <Check className="h-3 w-3" />}
       </span>
       <span>
@@ -122,7 +122,7 @@ export default function Welcome() {
         </p>
       </header>
       <div className="h-1 bg-line" aria-hidden="true">
-        <div className="h-1 bg-accent transition-all duration-300" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+        <div className="h-1 bg-fg transition-all duration-300" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
       </div>
 
       <main id="main" className="mx-auto w-full max-w-lg flex-1 px-6 py-12">

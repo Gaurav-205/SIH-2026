@@ -146,8 +146,8 @@ function AppearanceForm() {
               }
             }}
             className={cx(
-              "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
-              theme === value ? "border-accent bg-accent-soft text-accent ring-4 ring-accent/10" : "border-line text-muted hover:text-fg"
+              "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-all",
+              theme === value ? "border-fg bg-subtle text-fg shadow-sm" : "border-line text-muted hover:text-fg hover:border-fg/40"
             )}
           >
             <Icon className="h-5 w-5" />
@@ -265,7 +265,7 @@ export default function Settings() {
     <div className="animate-fade-in">
       <PageHeader title="Settings" description={mode === "demo" ? "Demo settings are kept in this browser only." : "Changes are saved to your account."} />
       <Card bodyClassName="p-6 sm:p-8">
-        <Section title="Profile" description="How you appear in AtmosFusion.">
+        <Section title="Profile" description="How you appear in Bharosa.">
           <ProfileForm />
         </Section>
         <Section title="Forecast preferences" description="Your dashboard opens on these, and alerts use your threshold.">

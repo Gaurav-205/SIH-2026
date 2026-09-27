@@ -1,6 +1,6 @@
-# AtmosFusion documentation
+# Bharosa documentation
 
-AtmosFusion blends physics, AI and ensemble weather forecasts into one rainfall forecast for Indian
+Bharosa blends physics, AI and ensemble weather forecasts into one rainfall forecast for Indian
 districts. Each model is weighted by how well it has recently verified against India Meteorological
 Department (IMD) observations at that place, lead time and season. Built for Smart India Hackathon
 problem **SIH26081** (NCMRWF, Ministry of Earth Sciences).

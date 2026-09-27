@@ -7,6 +7,7 @@ import {
   CloudRain,
   LayoutDashboard,
   LogOut,
+  MapPin,
   MapPinned,
   Menu,
   Network,
@@ -32,7 +33,7 @@ const NAV = [
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
-const DEFAULT_TITLE = "AtmosFusion — multi-model forecast blending";
+const DEFAULT_TITLE = "Bharosa — multi-model forecast blending";
 
 /** Which view controls each page uses. */
 function controlsFor(path: string) {
@@ -42,7 +43,7 @@ function controlsFor(path: string) {
 
 function Initials({ name }: { name: string }) {
   const initials = name.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-  return <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{initials}</span>;
+  return <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-subtle text-xs font-semibold text-fg border border-line">{initials}</span>;
 }
 
 function UserMenu({ onNavigate }: { onNavigate: () => void }) {
@@ -98,7 +99,7 @@ function UserMenu({ onNavigate }: { onNavigate: () => void }) {
           >
             <Settings className="h-4 w-4 text-muted" /> Settings
           </Link>
-          <button role="menuitem" type="button" onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-danger hover:bg-danger-soft">
+          <button role="menuitem" type="button" onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg hover:bg-subtle">
             <LogOut className="h-4 w-4" /> {mode === "demo" ? "Leave demo" : "Sign out"}
           </button>
         </div>
@@ -112,12 +113,15 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { open } = useAlerts();
   return (
     <div className="flex h-full flex-col">
-      <div className="px-5 py-5">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-line/60">
         <Link to="/app" onClick={onNavigate} className="rounded-md">
           <Logo />
         </Link>
+        <span className="rounded border border-line bg-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+          v1.0 Live
+        </span>
       </div>
-      <nav aria-label="App" className="flex-1 space-y-0.5 overflow-y-auto px-3">
+      <nav aria-label="App" className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {NAV.map(({ to, end, label, icon: Icon, badge }) => (
           <NavLink
             key={to}
@@ -126,15 +130,15 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               cx(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive ? "bg-accent-soft text-accent" : "text-muted hover:bg-subtle hover:text-fg"
+                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive ? "bg-subtle text-fg font-semibold border border-line/60" : "text-muted hover:bg-subtle hover:text-fg"
               )
             }
           >
-            <Icon className="h-4 w-4 flex-shrink-0" />
+            <Icon className="h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110" />
             <span className="flex-1">{label}</span>
             {badge && open.length > 0 && (
-              <span className="num rounded-full bg-danger px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">{open.length}</span>
+              <span className="num rounded-full bg-fg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-surface shadow-xs">{open.length}</span>
             )}
           </NavLink>
         ))}
@@ -155,28 +159,34 @@ function ViewControls() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {show.region && (
-        <select
-          aria-label="Region"
-          value={region}
-          onChange={(e) => set({ region: e.target.value as RegionId })}
-          className="h-8 rounded-lg border border-line bg-surface px-2 text-sm text-fg shadow-sm focus:border-accent focus:outline-none"
-        >
-          {Object.values(REGIONS).map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        <div className="relative inline-flex items-center">
+          <MapPin className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted" />
+          <select
+            aria-label="Region"
+            value={region}
+            onChange={(e) => set({ region: e.target.value as RegionId })}
+            className="h-8 appearance-none rounded-lg border border-line bg-surface pl-8 pr-7 text-xs font-medium text-fg shadow-sm transition-colors hover:border-muted focus:border-fg focus:outline-none"
+          >
+            {Object.values(REGIONS).map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-muted" />
+        </div>
       )}
       {show.lead && (
         <Segmented size="sm" label="Lead day" value={lead} onChange={(v) => set({ lead: v })} options={LEADS.map((d) => ({ value: d, label: `D${d}`, title: `Forecast day ${d}` }))} />
       )}
       <span
         className={cx(
-          "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex",
-          c ? "border-ok/20 bg-ok-soft text-ok" : cycle.isLoading ? "border-line bg-subtle text-muted" : "border-danger/20 bg-danger-soft text-danger"
+          "hidden items-center gap-1.5 rounded-full border border-line bg-subtle px-2.5 py-1 text-xs font-medium sm:inline-flex shadow-xs",
+          c ? "text-fg" : "text-muted"
         )}
         title={c ? `Live cycle generated ${c.generated_at.slice(0, 16).replace("T", " ")} UTC from ${c.sources.filter((x) => x.live).length} models` : "No live data"}
       >
-        <span className={cx("h-1.5 w-1.5 rounded-full", c ? "bg-ok" : cycle.isLoading ? "bg-muted" : "bg-danger")} />
+        <span className={cx("h-1.5 w-1.5 rounded-full", c ? "bg-fg" : "bg-muted")} />
         {c ? `Live · run ${fmtRunTime.format(new Date(c.issue.init_utc))} UTC` : cycle.isLoading ? "Connecting…" : "Offline"}
       </span>
     </div>
@@ -189,11 +199,11 @@ function Banners() {
   const navigate = useNavigate();
   if (mode === "demo")
     return (
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-accent/15 bg-accent-soft px-4 py-2 text-center text-sm text-accent">
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-line bg-subtle px-4 py-2 text-center text-sm text-fg">
         <span>You're exploring the demo. Settings and acknowledgements are kept in this browser only.</span>
         <button
           type="button"
-          className="font-semibold underline underline-offset-2"
+          className="font-semibold underline underline-offset-2 hover:opacity-80"
           onClick={() => navigate("/logout?to=/signup")}
         >
           Create an account
@@ -202,7 +212,7 @@ function Banners() {
     );
   if (offline)
     return (
-      <div className="flex items-center justify-center gap-2 border-b border-warn/20 bg-warn-soft px-4 py-2 text-sm text-warn">
+      <div className="flex items-center justify-center gap-2 border-b border-line bg-subtle px-4 py-2 text-sm text-fg">
         <WifiOff className="h-4 w-4" /> Can't reach the server. You're seeing offline data and changes can't be saved right now.
       </div>
     );
@@ -212,10 +222,10 @@ function Banners() {
 export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const loc = useLocation();
-  const title = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)))?.label ?? "AtmosFusion";
+  const title = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)))?.label ?? "Bharosa";
 
   useEffect(() => {
-    document.title = `${title} · AtmosFusion`;
+    document.title = `${title} · Bharosa`;
     return () => {
       document.title = DEFAULT_TITLE;
     };

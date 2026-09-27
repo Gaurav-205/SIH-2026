@@ -1,7 +1,7 @@
-# AtmosFusion ML pipeline
+# Bharosa ML pipeline
 
 Learns, per place, how much to trust each physics, ensemble and AI forecast, and serves the blend to the website.
-Plan and milestones: the "AtmosFusion ML Plan" document (M1–M11). Configuration: [config.yaml](config.yaml).
+Plan and milestones: the "Bharosa ML Plan" document (M1–M11). Configuration: [config.yaml](config.yaml).
 
 **Full documentation is in [`docs/`](../docs/README.md)**: [pipeline commands](../docs/pipeline.md),
 [methodology](../docs/methodology.md), [data sources](../docs/data-sources.md), [verification](../docs/verification.md).

@@ -1,5 +1,5 @@
 """
-AtmosFusion API (NCMRWF / MoES, SIH26081)
+Bharosa API (NCMRWF / MoES, SIH26081)
 
 Serves the outputs of the ML pipeline (ml/daily/run_cycle.py), which fetches live forecasts from
 Open-Meteo, verifies each model against IMD gridded rainfall, and blends them. Nothing here is
@@ -21,7 +21,8 @@ from fastapi.responses import Response
 import accounts
 import auth
 
-EXPORTS_DIR = Path(os.getenv("ATMOSFUSION_EXPORTS", Path(__file__).resolve().parent.parent / "ml" / "exports"))
+_DEFAULT_EXPORTS = Path(__file__).resolve().parent.parent / "ml" / "exports"
+EXPORTS_DIR = Path(os.getenv("BHAROSA_EXPORTS", os.getenv("ATMOSFUSION_EXPORTS", _DEFAULT_EXPORTS)))
 CYCLE_FILE = re.compile(r"^cycle_(\d{8}T\d{2})\.json$")
 
 
@@ -32,7 +33,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="AtmosFusion API",
+    title="Bharosa API",
     description="Live multi-model forecast blending (Open-Meteo forecasts, IMD truth) and user accounts",
     version="3.0.0",
     lifespan=lifespan,
@@ -42,8 +43,11 @@ app.include_router(accounts.router)
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv(
-        "ATMOSFUSION_CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:4173,http://127.0.0.1:4173",
+        "BHAROSA_CORS_ORIGINS",
+        os.getenv(
+            "ATMOSFUSION_CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:4173,http://127.0.0.1:4173",
+        ),
     ).split(",")
     if o.strip()
 ]
@@ -73,7 +77,7 @@ def _issues() -> list[str]:
 @app.get("/api/v1/health")
 def health():
     latest = EXPORTS_DIR / "latest.json"
-    info = {"status": "operational", "service": "AtmosFusion API v3", "cycle": None}
+    info = {"status": "operational", "service": "Bharosa API v3", "cycle": None}
     if latest.exists():
         c = json.loads(latest.read_text(encoding="utf-8"))
         info["cycle"] = {
@@ -165,7 +169,7 @@ def telemetry(point_id: str = Query("pune-ghats", description="District point id
     # Air Quality (PM2.5, PM10, AQI, UV)
     try:
         url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pm2_5,pm10,european_aqi,uv_index"
-        req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Bharosa/3.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             out["air_quality"] = data.get("current")
@@ -175,7 +179,7 @@ def telemetry(point_id: str = Query("pune-ghats", description="District point id
     # Surface & Catchment Soil Moisture
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=relative_humidity_2m,surface_pressure,soil_moisture_0_to_1cm"
-        req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Bharosa/3.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             out["surface"] = data.get("current")
@@ -186,7 +190,7 @@ def telemetry(point_id: str = Query("pune-ghats", description="District point id
     if is_coastal:
         try:
             url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&current=wave_height,wave_direction,wave_period"
-            req = urllib.request.Request(url, headers={"User-Agent": "AtmosFusion/3.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Bharosa/3.0"})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read().decode())
                 out["marine"] = data.get("current")

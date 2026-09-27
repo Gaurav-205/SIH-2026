@@ -1,4 +1,4 @@
-"""Shared configuration, paths and date helpers for the AtmosFusion ML pipeline."""
+"""Shared configuration, paths and date helpers for the Bharosa ML pipeline."""
 
 from __future__ import annotations
 

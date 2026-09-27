@@ -3,24 +3,24 @@
 export type AlertLevel = "Yellow" | "Orange" | "Red";
 
 export const IMD_CATEGORIES = [
-  { min: 204.5, label: "Extremely heavy", color: "#ef4444" },
-  { min: 115.6, label: "Very heavy", color: "#f97316" },
-  { min: 64.5, label: "Heavy", color: "#eab308" },
-  { min: 35.5, label: "Moderate", color: "#3b82f6" },
-  { min: 7.5, label: "Light", color: "#10b981" },
-  { min: 0, label: "Very light / none", color: "#94a3b8" },
+  { min: 204.5, label: "Extremely heavy", color: "#09090b" },
+  { min: 115.6, label: "Very heavy", color: "#27272a" },
+  { min: 64.5, label: "Heavy", color: "#52525b" },
+  { min: 35.5, label: "Moderate", color: "#71717a" },
+  { min: 7.5, label: "Light", color: "#a1a1aa" },
+  { min: 0, label: "Very light / none", color: "#d4d4d8" },
 ] as const;
 
 export function imdCategory(mm: number) {
   return IMD_CATEGORIES.find((c) => mm >= c.min) ?? IMD_CATEGORIES[IMD_CATEGORIES.length - 1];
 }
 
-export const ALERT_COLORS: Record<AlertLevel, string> = { Red: "#ef4444", Orange: "#f97316", Yellow: "#eab308" };
+export const ALERT_COLORS: Record<AlertLevel, string> = { Red: "#09090b", Orange: "#52525b", Yellow: "#a1a1aa" };
 
 export const FAMILY_LABEL: Record<string, string> = { physics: "Physics NWP", ai: "AI / ML", ensemble: "Ensemble" };
 
-/** Colour-blind-safe palette assigned to sources in the order the cycle lists them. */
-const PALETTE = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#332288", "#44AA99", "#882255", "#999933", "#AA4499", "#117733"];
+/** Monochrome grayscale palette assigned to sources in the order the cycle lists them. */
+const PALETTE = ["#09090b", "#52525b", "#a1a1aa", "#27272a", "#71717a", "#d4d4d8", "#18181b", "#3f3f46", "#8e8e99", "#333338", "#b5b5be", "#4b4b52", "#e4e4e7"];
 
 export function sourceColor(index: number): string {
   return PALETTE[index % PALETTE.length];

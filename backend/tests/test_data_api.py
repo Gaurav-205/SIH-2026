@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 
-EXPORTS = Path(os.environ["ATMOSFUSION_EXPORTS"])
+EXPORTS = Path(os.environ.get("BHAROSA_EXPORTS", os.environ.get("ATMOSFUSION_EXPORTS", "")))
 
 
 def cycle_doc(init: str) -> dict:
@@ -64,7 +64,7 @@ def test_issues_listing_and_lookup(client):
 
 
 def test_scorecard_is_served_verbatim(client):
-    doc = {"rows": [{"lead": 1, "method": "AtmosFusion (Stage A)", "rmse": 13.9}]}
+    doc = {"rows": [{"lead": 1, "method": "Bharosa (Stage A)", "rmse": 13.9}]}
     write("scorecard.json", doc)
     assert client.get("/api/v1/scorecard").json() == doc
 

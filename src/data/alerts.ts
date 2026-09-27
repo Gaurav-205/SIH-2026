@@ -64,11 +64,12 @@ export function buildAlerts(cycle: Cycle | undefined, lead: number, threshold: n
 
 /* ── Acknowledgements ───────────────────────────────────── */
 
-const DEMO_KEY = "atmosfusion.demo-acks";
+const DEMO_KEY = "bharosa.demo-acks";
+const DEMO_KEY_LEGACY = "atmosfusion.demo-acks";
 
 function readDemoAcks(): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(DEMO_KEY) || "{}");
+    return JSON.parse(localStorage.getItem(DEMO_KEY) || localStorage.getItem(DEMO_KEY_LEGACY) || "{}");
   } catch {
     return {};
   }

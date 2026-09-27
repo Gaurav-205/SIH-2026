@@ -1,5 +1,5 @@
 """
-AtmosFusion accounts: storage, password hashing and access tokens.
+Bharosa accounts: storage, password hashing and access tokens.
 Standard library only (sqlite3, hashlib, hmac) so the backend needs no extra dependencies.
 """
 
@@ -14,11 +14,20 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-DB_PATH = os.getenv(
-    "ATMOSFUSION_DB",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "atmosfusion.db"),
+_default_db = (
+    "bharosa.db"
+    if not os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "atmosfusion.db"))
+    or os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "bharosa.db"))
+    else "atmosfusion.db"
 )
-TOKEN_TTL_SECONDS = int(os.getenv("ATMOSFUSION_TOKEN_TTL", str(7 * 24 * 3600)))  # 7 days
+DB_PATH = os.getenv(
+    "BHAROSA_DB",
+    os.getenv(
+        "ATMOSFUSION_DB",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), _default_db),
+    ),
+)
+TOKEN_TTL_SECONDS = int(os.getenv("BHAROSA_TOKEN_TTL", os.getenv("ATMOSFUSION_TOKEN_TTL", str(7 * 24 * 3600))))  # 7 days
 PBKDF2_ITERATIONS = 210_000
 
 SCHEMA = """
@@ -108,7 +117,7 @@ def check_login(email: str, password: str) -> sqlite3.Row | None:
 # ── Tokens (JWT, HS256) ─────────────────────────────────────
 
 def _secret() -> bytes:
-    env = os.getenv("ATMOSFUSION_SECRET")
+    env = os.getenv("BHAROSA_SECRET", os.getenv("ATMOSFUSION_SECRET"))
     if env:
         return env.encode()
     # Persist a generated secret so tokens survive backend restarts

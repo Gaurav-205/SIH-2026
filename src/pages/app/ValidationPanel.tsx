@@ -75,7 +75,7 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
   const maxGain = Math.max(...importance.map((i) => i.gain_share), 1e-9);
 
   const row = (r: ValidationScore, strong = false) => (
-    <tr key={r.method} className={cx(strong && "bg-accent-soft/60 font-semibold text-accent")}>
+    <tr key={r.method} className={cx(strong && "bg-subtle font-bold text-fg")}>
       <td className="px-5 py-2">{r.method}</td>
       <td className="num px-2 py-2 text-right">{r.n}</td>
       <td className="num px-2 py-2 text-right">{num(r.rmse)}</td>
@@ -163,7 +163,7 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
                       <tr key={`${b.threshold}-${b.method}`}>
                         <td className="px-5 py-2 text-fg">{b.method}</td>
                         <td className="px-2 py-2 text-xs text-muted">≥ {b.threshold} mm</td>
-                        <td className={cx("num py-2 pl-2 pr-5 text-right", (b.bss_vs_climatology ?? 0) > 0 ? "text-ok" : "text-danger")}>{num(b.bss_vs_climatology)}</td>
+                        <td className={cx("num py-2 pl-2 pr-5 text-right font-medium", (b.bss_vs_climatology ?? 0) > 0 ? "text-fg font-semibold" : "text-muted")}>{num(b.bss_vs_climatology)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -177,7 +177,7 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
                   <li key={i.feature} className="grid grid-cols-[12rem_1fr_3rem] items-center gap-3 text-sm">
                     <span className="truncate text-fg">{FEATURE_LABELS[i.feature] ?? i.feature}</span>
                     <span className="h-2 rounded-full bg-subtle">
-                      <span className="block h-2 rounded-full bg-accent" style={{ width: `${(100 * i.gain_share) / maxGain}%` }} />
+                      <span className="block h-2 rounded-full bg-fg" style={{ width: `${(100 * i.gain_share) / maxGain}%` }} />
                     </span>
                     <span className="num text-right text-xs text-muted">{(100 * i.gain_share).toFixed(1)}%</span>
                   </li>

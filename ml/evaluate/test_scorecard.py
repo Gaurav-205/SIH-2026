@@ -124,7 +124,7 @@ def main() -> None:
         "E1 equal mean": df.pivot_table(index=GROUP, columns="source", values="value").mean(axis=1),
         "E2 static MME": static_mme_fit_predict(train, df),
         "E3 Stage A": sa["blend"],
-        "AtmosFusion Stage B (frozen)": b_frame["blend"],
+        "Bharosa Stage B (frozen)": b_frame["blend"],
     })
     common = preds.dropna().index
     frame = preds.loc[common].join(truth.rename("obs")).reset_index()
@@ -144,14 +144,14 @@ def main() -> None:
         d = fl["date"].to_numpy()
         se = {m: ((fl[m] - fl["obs"]) ** 2).to_numpy() for m in preds.columns}
         for ref in ("E3 Stage A", "E2 static MME", "E1 equal mean"):
-            diff = scores.block_bootstrap_diff(d, se["AtmosFusion Stage B (frozen)"], se[ref], stat="rmse")
+            diff = scores.block_bootstrap_diff(d, se["Bharosa Stage B (frozen)"], se[ref], stat="rmse")
             boot.append({"lead": int(lead), "b": ref, **diff})
         src = table[(table["lead"] == lead) & (table["kind"] == "source")]
         best = src.loc[src["rmse"].idxmin(), "method"]
         g = df[(df["lead"] == lead) & (df["source"] == best)].set_index(GROUP)["value"]
         j = fl.set_index(GROUP).join(g.rename("best"), how="inner")
         boot.append({"lead": int(lead), "b": f"best source ({best})", **scores.block_bootstrap_diff(
-            j.index.get_level_values("date").to_numpy(), ((j["AtmosFusion Stage B (frozen)"] - j["obs"]) ** 2).to_numpy(),
+            j.index.get_level_values("date").to_numpy(), ((j["Bharosa Stage B (frozen)"] - j["obs"]) ** 2).to_numpy(),
             ((j["best"] - j["obs"]) ** 2).to_numpy(), stat="rmse")})
 
     probs = frozen.probabilities(df, w).set_index(GROUP)

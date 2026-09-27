@@ -1,6 +1,6 @@
 """Verification scorecard for daily rain, computed from archived forecasts against IMD truth.
 
-Methods: every source alone, the equal-weight mean of available sources, and AtmosFusion Stage A,
+Methods: every source alone, the equal-weight mean of available sources, and Bharosa Stage A,
 which uses exactly the ledger/blend code and source pool of the live cycle. For each valid date V and lead L, Stage A
 weights come from errors of forecasts valid on or before V - L (the plan's leakage rule).
 
@@ -92,7 +92,7 @@ def build() -> dict:
                   .rename(columns={"source": "method", "value": "fc"}))
     combined = pd.concat([
         per_source,
-        hind[["point_id", "date", "lead", "stage_a"]].rename(columns={"stage_a": "fc"}).assign(method="AtmosFusion (Stage A)"),
+        hind[["point_id", "date", "lead", "stage_a"]].rename(columns={"stage_a": "fc"}).assign(method="Bharosa (Stage A)"),
         hind[["point_id", "date", "lead", "equal_mean"]].rename(columns={"equal_mean": "fc"}).assign(method="Equal-weight mean"),
     ], ignore_index=True)
     pairs = combined.merge(rain_truth[["point_id", "date", "obs", "truth"]], on=["point_id", "date"]).dropna(subset=["fc", "obs"])
@@ -106,7 +106,7 @@ def build() -> dict:
         "test_monsoon_2025": (pd.Timestamp(test["start"]), pd.Timestamp(test["end"])),
         "all_verified": (pairs["date"].min(), pairs["date"].max()),
     }
-    family = {s.id: s.family for s in sources()} | {"AtmosFusion (Stage A)": "blend", "Equal-weight mean": "blend"}
+    family = {s.id: s.family for s in sources()} | {"Bharosa (Stage A)": "blend", "Equal-weight mean": "blend"}
     label = {s.id: s.label for s in sources()}
     rng = np.random.default_rng(26081)
     rows = []

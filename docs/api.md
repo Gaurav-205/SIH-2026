@@ -14,7 +14,7 @@ FastAPI app in [`backend/`](../backend/). Interactive docs are at `http://localh
 
 Until the pipeline has written an export, the data endpoints return **503**, with a message naming the
 command that produces it. The website shows that state rather than placeholder data. The
-exports folder is `ml/exports`, or the path in `ATMOSFUSION_EXPORTS`.
+exports folder is `ml/exports`, or the path in `BHAROSA_EXPORTS` (`ATMOSFUSION_EXPORTS`).
 
 ### Cycle contract
 
@@ -54,10 +54,10 @@ Authenticated calls send `Authorization: Bearer <token>`.
 
 **Security:**
 - Passwords are hashed with PBKDF2-SHA256 and a per-user salt.
-- Tokens are HS256, signed with `ATMOSFUSION_SECRET` (a random key is generated and stored if unset).
-  They last 7 days by default (`ATMOSFUSION_TOKEN_TTL`).
+- Tokens are HS256, signed with `BHAROSA_SECRET` (a random key is generated and stored if unset).
+  They last 7 days by default (`BHAROSA_TOKEN_TTL`).
 - A wrong password and an unknown email give the same error.
-- CORS origins come from `ATMOSFUSION_CORS_ORIGINS`.
+- CORS origins come from `BHAROSA_CORS_ORIGINS`.
 
 ## Errors
 

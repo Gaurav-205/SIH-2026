@@ -100,7 +100,7 @@ early stopping at 100, min 500 rows per leaf, feature and bagging fractions 0.8,
 | E1 | equal-weight mean | what naive multi-model averaging gives |
 | E2 | static MME: per-point, per-lead ridge regression on the raw forecasts, fitted once | the IMD/Krishnamurti superensemble style: the operational bar to beat |
 | E3 | Stage A | the value of recent, local skill |
-| E4 | Stage B (with and without heavy-rain row weights 1 + log1p(obs)) | full AtmosFusion |
+| E4 | Stage B (with and without heavy-rain row weights 1 + log1p(obs)) | full Bharosa |
 | B-alt | LightGBM stacking: predicts the observation directly (mean) plus p10/p50/p90 quantile models, sorted so they never cross | the honest alternative to gating |
 | E5–E8 | E4 without regime / lead / place / season features | does each factor from the problem statement add skill? |
 | E9, E10 | E4 without AI sources / without ensemble sources (tables rebuilt without them) | the value of the hybrid source pool |

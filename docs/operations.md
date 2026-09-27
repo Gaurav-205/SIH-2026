@@ -27,7 +27,7 @@ Arguments: -m ml.daily.run_cycle
 Start in:  C:\path\to\Project
 ```
 
-On Linux, use cron: `30 5 * * * cd /srv/atmosfusion && ml/.venv/bin/python -m ml.daily.run_cycle >> ml/cache/cycle.log 2>&1`
+On Linux, use cron: `30 5 * * * cd /srv/bharosa && ml/.venv/bin/python -m ml.daily.run_cycle >> ml/cache/cycle.log 2>&1`
 
 ## Budgets
 
@@ -52,4 +52,4 @@ On Linux, use cron: `30 5 * * * cd /srv/atmosfusion && ml/.venv/bin/python -m ml
 
 `ml/cache/imd` (the IMD mirror) and `ml/data/forecasts` are the expensive parts to rebuild; the IMD mirror
 also protects against the IMD server being offline. `ml/artifacts` holds the frozen models, and
-`backend/atmosfusion.db` holds user accounts. Back these up; everything else can be regenerated.
+`backend/bharosa.db` holds user accounts. Back these up; everything else can be regenerated.

@@ -92,12 +92,12 @@ export default function Overview() {
             )}
 
             {/* Pune & Mumbai Meteorological Spotlight */}
-            <div className="mt-6 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 via-subtle/50 to-transparent p-5">
+            <div className="mt-6 rounded-2xl border border-line bg-gradient-to-br from-subtle/80 via-surface to-surface p-5 shadow-xs">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-accent">Maharashtra Focus Hub</span>
+                    <span className="flex h-2 w-2 rounded-full bg-fg animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-fg">Maharashtra Focus Hub</span>
                   </div>
                   <h3 className="mt-1 text-base font-semibold text-fg">Pune & Mumbai Microclimate Intelligence</h3>
                   <p className="text-xs text-muted">
@@ -107,93 +107,93 @@ export default function Overview() {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-ghats` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-surface px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
                   >
-                    📍 Pune Ghats <ArrowRight className="h-3 w-3" />
+                    Pune Ghats <ArrowRight className="h-3 w-3" />
                   </Link>
                   <Link
                     to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-plains` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-surface px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
                   >
-                    📍 Pune Plains <ArrowRight className="h-3 w-3" />
+                    Pune Plains <ArrowRight className="h-3 w-3" />
                   </Link>
                   <Link
                     to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=mumbai` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent/40 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
                   >
-                    📍 Mumbai MMR <ArrowRight className="h-3 w-3" />
+                    Mumbai MMR <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
               </div>
 
               {/* Sub-cards */}
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {(() => {
-                  const pg = idx.get("pune-ghats", lead, "rain");
+                {[
+                  {
+                    id: "pune-ghats",
+                    name: "Pune Ghats (Catchment)",
+                    tag: "Catchment Basin",
+                    sub: "Lonavala / Mulshi / Khadakwasla dams",
+                  },
+                  {
+                    id: "pune-plains",
+                    name: "Pune City & Plains",
+                    tag: "Urban Core",
+                    sub: "Shivajinagar / Haveli / Pune Urban",
+                  },
+                  {
+                    id: "mumbai",
+                    name: "Mumbai Metropolitan",
+                    tag: "Coastal MMR",
+                    sub: "Colaba / Santacruz / Harbour",
+                  },
+                ].map((item) => {
+                  const data = idx.get(item.id, lead, "rain");
                   return (
-                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-fg">Pune Ghats (Catchment)</span>
-                        {pg?.alert_level && <Badge tone={pg.alert_level === "Red" ? "danger" : "warn"}>{pg.alert_level}</Badge>}
+                    <Link
+                      key={item.id}
+                      to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${item.id}` }}
+                      className="group block rounded-xl border border-line bg-surface p-4 transition-all hover:border-fg/40 hover:shadow-card"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="rounded bg-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          {item.tag}
+                        </span>
+                        {data?.alert_level ? (
+                          <Badge tone={data.alert_level === "Red" ? "danger" : "warn"}>{data.alert_level}</Badge>
+                        ) : (
+                          <ArrowRight className="h-3.5 w-3.5 text-muted opacity-0 transition group-hover:opacity-100 group-hover:text-fg" />
+                        )}
                       </div>
-                      <p className="mt-2 text-2xl font-bold text-fg">
-                        {pg ? `${pg.blend.toFixed(1)} mm` : "—"}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        P10–P90: {pg ? `${pg.p10.toFixed(1)}–${pg.p90.toFixed(1)} mm` : "—"} · Equal {pg ? `${pg.equal_mean.toFixed(1)} mm` : "—"}
-                      </p>
-                      <p className="mt-2 text-[11px] text-muted">Lonavala / Mulshi / Khadakwasla dams basin</p>
-                    </div>
-                  );
-                })()}
-
-                {(() => {
-                  const pp = idx.get("pune-plains", lead, "rain");
-                  return (
-                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-fg">Pune City & Plains</span>
-                        {pp?.alert_level && <Badge tone={pp.alert_level === "Red" ? "danger" : "warn"}>{pp.alert_level}</Badge>}
+                      <h4 className="mt-2 text-sm font-semibold text-fg group-hover:text-fg transition-colors">
+                        {item.name}
+                      </h4>
+                      <div className="mt-2 flex items-baseline gap-1.5">
+                        <span className="text-2xl font-bold tracking-tight text-fg">
+                          {data ? data.blend.toFixed(1) : "—"}
+                        </span>
+                        <span className="text-xs font-medium text-muted">mm/24h</span>
                       </div>
-                      <p className="mt-2 text-2xl font-bold text-fg">
-                        {pp ? `${pp.blend.toFixed(1)} mm` : "—"}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        P10–P90: {pp ? `${pp.p10.toFixed(1)}–${pp.p90.toFixed(1)} mm` : "—"} · Equal {pp ? `${pp.equal_mean.toFixed(1)} mm` : "—"}
-                      </p>
-                      <p className="mt-2 text-[11px] text-muted">Shivajinagar / Haveli / Pune Urban core</p>
-                    </div>
-                  );
-                })()}
-
-                {(() => {
-                  const mb = idx.get("mumbai", lead, "rain");
-                  return (
-                    <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-fg">Mumbai Metropolitan</span>
-                        {mb?.alert_level && <Badge tone={mb.alert_level === "Red" ? "danger" : "warn"}>{mb.alert_level}</Badge>}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted">
+                        <span>Range: <b className="text-fg">{data ? `${data.p10.toFixed(0)}–${data.p90.toFixed(0)}` : "—"}</b> mm</span>
+                        <span>Equal: <b className="text-fg">{data ? data.equal_mean.toFixed(1) : "—"}</b> mm</span>
                       </div>
-                      <p className="mt-2 text-2xl font-bold text-fg">
-                        {mb ? `${mb.blend.toFixed(1)} mm` : "—"}
+                      <p className="mt-2 border-t border-line/60 pt-2 text-[11px] text-muted truncate">
+                        {item.sub}
                       </p>
-                      <p className="mt-1 text-xs text-muted">
-                        P10–P90: {mb ? `${mb.p10.toFixed(1)}–${mb.p90.toFixed(1)} mm` : "—"} · Equal {mb ? `${mb.equal_mean.toFixed(1)} mm` : "—"}
-                      </p>
-                      <p className="mt-2 text-[11px] text-muted">Colaba / Santacruz / Coastal MMR</p>
-                    </div>
+                    </Link>
                   );
-                })()}
+                })}
               </div>
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
               <Card
-                title={`Rainfall, ${REGIONS[region].name}`}
-                description="Blended 24-hour forecast per district"
+                title={`Rainfall Map · ${REGIONS[region].name}`}
+                description="Blended 24-hour forecast distribution per district"
                 action={
-                  <Link to={{ pathname: "/app/forecast", search: query }} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-                    Open forecast <ArrowRight className="h-3.5 w-3.5" />
+                  <Link to={{ pathname: "/app/forecast", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
+                    Detailed forecast <ArrowRight className="h-3 w-3" />
                   </Link>
                 }
               >
@@ -205,58 +205,76 @@ export default function Overview() {
                     const f = idx.get(p.id, lead, "rain")!;
                     return `${f.blend.toFixed(1)} mm (range ${f.p10.toFixed(0)}–${f.p90.toFixed(0)}) · equal mean ${f.equal_mean.toFixed(1)} mm`;
                   }}
-                  className="h-[380px]"
+                  className="h-[400px]"
                 />
               </Card>
 
-              <Card
-                title="Needs attention"
-                description={`IMD alert levels, or ≥50% chance of ${user.alert_threshold} mm (your threshold)`}
-                action={
-                  <Link to={{ pathname: "/app/alerts", search: query }} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-                    All alerts <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                }
-                bodyClassName="py-1"
-              >
-                {regionOpen.length === 0 ? (
-                  <div className="grid min-h-[140px] place-items-center text-center">
-                    <div>
-                      <p className="font-medium text-fg">All clear</p>
-                      <p className="mt-1 text-sm text-muted">No open alerts in {REGIONS[region].name} for day {lead}.</p>
+              <div className="flex flex-col gap-6">
+                <Card
+                  title="Needs attention"
+                  description={`IMD alerts or ≥50% chance of exceeding ${user.alert_threshold} mm`}
+                  action={
+                    <Link to={{ pathname: "/app/alerts", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
+                      All alerts ({regionOpen.length}) <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  }
+                  badge={regionOpen.length > 0 ? <Badge tone="warn">{regionOpen.length} active</Badge> : undefined}
+                  bodyClassName="py-1"
+                >
+                  {regionOpen.length === 0 ? (
+                    <div className="flex items-center justify-center gap-3 py-6 text-center">
+                      <CheckCircle2 className="h-5 w-5 text-fg flex-shrink-0" />
+                      <div className="text-left">
+                        <p className="text-sm font-semibold text-fg">All clear</p>
+                        <p className="text-xs text-muted">No open alerts in {REGIONS[region].name} for day {lead}.</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-line">
-                    {regionOpen.slice(0, 5).map((a) => (
-                      <AlertItem key={a.id} alert={a} ackedAt={acks[a.id]} onToggle={(ack) => toggle(a.id, ack)} compact />
-                    ))}
-                  </ul>
-                )}
-                <table className="mt-2 w-full text-sm">
-                  <thead>
-                    <tr className="border-t border-line text-left text-xs text-muted">
-                      <th className="pb-1 pt-3 font-medium">Wettest districts</th>
-                      <th className="pb-1 pt-3 text-right font-medium">Blend</th>
-                      <th className="pb-1 pt-3 text-right font-medium">Worst</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {rows.slice(0, 5).map(({ p, f }) => (
-                      <tr key={p.id}>
-                        <td className="py-2 text-fg">
-                          <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="hover:underline">
-                            {p.name}
-                          </Link>{" "}
-                          {f!.alert_level && <Badge tone={f!.alert_level === "Red" ? "danger" : "warn"}>{f!.alert_level}</Badge>}
-                        </td>
-                        <td className="num py-2 text-right font-medium text-fg">{f!.blend.toFixed(1)}</td>
-                        <td className="num py-2 text-right text-muted">{f!.p90.toFixed(0)}</td>
+                  ) : (
+                    <ul className="divide-y divide-line">
+                      {regionOpen.slice(0, 4).map((a) => (
+                        <AlertItem key={a.id} alert={a} ackedAt={acks[a.id]} onToggle={(ack) => toggle(a.id, ack)} compact />
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+
+                <Card
+                  title="Wettest Districts"
+                  description="Top districts ranked by blended 24h precipitation"
+                  action={
+                    <Link to={{ pathname: "/app/forecast", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
+                      Full rankings <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  }
+                  bodyClassName="p-0"
+                >
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-line bg-subtle/50 text-left text-muted">
+                        <th className="py-2.5 pl-4 pr-2 font-semibold">#</th>
+                        <th className="py-2.5 px-2 font-semibold">District</th>
+                        <th className="py-2.5 px-2 text-right font-semibold">Blend</th>
+                        <th className="py-2.5 pr-4 pl-2 text-right font-semibold">Worst (P90)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Card>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {rows.slice(0, 5).map(({ p, f }, rank) => (
+                        <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
+                          <td className="py-2 pl-4 pr-2 font-semibold text-muted">#{rank + 1}</td>
+                          <td className="py-2 px-2 text-fg">
+                            <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="font-medium hover:underline">
+                              {p.name}
+                            </Link>{" "}
+                            {f!.alert_level && <Badge tone={f!.alert_level === "Red" ? "danger" : "warn"}>{f!.alert_level}</Badge>}
+                          </td>
+                          <td className="num py-2 px-2 text-right font-bold text-fg">{f!.blend.toFixed(1)} mm</td>
+                          <td className="num py-2 pr-4 pl-2 text-right text-muted">{f!.p90.toFixed(0)} mm</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </div>
             </div>
             <p className="mt-6 text-xs text-muted">{c.attribution}</p>
           </>

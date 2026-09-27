@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, CheckCheck, Download } from "lucide-react";
-import { Button, Card, PageHeader, Segmented } from "@/components/ui";
+import { AlertCircle, CheckCheck, CheckCircle2, Download } from "lucide-react";
+import { Badge, Button, Card, PageHeader, Segmented } from "@/components/ui";
 import AlertItem from "@/components/AlertItem";
 import LiveState from "@/components/LiveState";
 import { issueId, useAlerts } from "@/data/alerts";
@@ -32,7 +32,7 @@ export default function Alerts() {
               <Download className="h-3.5 w-3.5" /> CAP JSON
             </Button>
             <Button size="sm" disabled={!open.length} onClick={() => open.forEach((a) => toggle(a.id, true))}>
-              <CheckCheck className="h-3.5 w-3.5" /> Acknowledge all
+              <CheckCheck className="h-3.5 w-3.5" /> Acknowledge all ({open.length})
             </Button>
           </>
         }
@@ -64,7 +64,12 @@ export default function Alerts() {
           {(Object.keys(REGIONS) as (keyof typeof REGIONS)[]).map((rid) => {
             const items = shown.filter((a) => c?.points.find((p) => p.id === a.pointId)?.region === rid);
             return (
-              <Card key={rid} title={REGIONS[rid].name} bodyClassName="py-1">
+              <Card
+                key={rid}
+                title={REGIONS[rid].name}
+                badge={items.length > 0 ? <Badge tone={items.some((i) => i.level === "Red") ? "danger" : "warn"}>{items.length} {filter}</Badge> : undefined}
+                bodyClassName="py-1"
+              >
                 {items.length ? (
                   <ul className="divide-y divide-line">
                     {items.map((a) => (
@@ -72,9 +77,10 @@ export default function Alerts() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="py-8 text-center text-sm text-muted">
-                    {filter === "open" ? "Nothing open here." : filter === "acked" ? "Nothing acknowledged yet." : `No alerts for day ${lead}.`}
-                  </p>
+                  <div className="flex items-center justify-center gap-2 py-8 text-center text-sm text-muted">
+                    <CheckCircle2 className="h-4 w-4 text-muted" />
+                    <span>{filter === "open" ? "Nothing open here." : filter === "acked" ? "Nothing acknowledged yet." : `No alerts for day ${lead}.`}</span>
+                  </div>
                 )}
               </Card>
             );

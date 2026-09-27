@@ -19,7 +19,7 @@ export default function LiveState({ loading, error, children, what = "the live f
   const status = error instanceof ApiError ? error.status : -1;
   const [Icon, title, body, cmd] =
     status === 0
-      ? [CloudOff, "Backend not reachable", "Live data comes from the AtmosFusion backend. Start it, then reload:", "cd backend && uvicorn main:app --port 8000"]
+      ? [CloudOff, "Backend not reachable", "Live data comes from the Bharosa backend. Start it, then reload:", "cd backend && uvicorn main:app --port 8000"]
       : status === 503
       ? [Hourglass, `No ${what.replace(/^the /, "")} yet`, "The backend is running but the pipeline hasn't produced this yet. Run:", pipelineCommand(error)]
       : [TriangleAlert, "Couldn't load live data", error instanceof Error ? error.message : "Unexpected error", null];

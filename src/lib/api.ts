@@ -1,5 +1,5 @@
 /**
- * AtmosFusion API client. All data (live forecast cycle, scorecard, accounts) comes from the backend;
+ * Bharosa API client. All data (live forecast cycle, scorecard, accounts) comes from the backend;
  * errors are raised as ApiError with a human-readable message (status 0 = server unreachable).
  */
 
@@ -15,7 +15,7 @@ export class ApiError extends Error {
 }
 
 export const OFFLINE_MESSAGE =
-  "Can't reach the AtmosFusion server. Start it with: uvicorn main:app --port 8000 (in backend/).";
+  "Can't reach the Bharosa server. Start it with: uvicorn main:app --port 8000 (in backend/).";
 
 interface FastApiValidationError {
   loc?: (string | number)[];

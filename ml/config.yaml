@@ -1,8 +1,8 @@
-# AtmosFusion ML pipeline configuration (single source of truth for every stage).
+# Bharosa ML pipeline configuration (single source of truth for every stage).
 # Dates are ISO strings; all times UTC unless noted.
 
 project:
-  name: atmosfusion
+  name: bharosa
   data_dir: ml/data          # Parquet outputs (gitignored)
   cache_dir: ml/cache        # HTTP cache + raw mirrors (gitignored)
   reports_dir: ml/reports
