@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import logging
 from collections import Counter
 from pathlib import Path
@@ -19,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from ml.common import config, path, points, sources
+from ml.daily.publication import publish_json
 from ml.live.forecast import fetch_live, first_valid_date, run_times
 from ml.live.scorecard import build as build_scorecard
 from ml.live.stage_a import blend_one, ledger, load_archive, load_truth, reasons
@@ -132,10 +132,10 @@ def main() -> None:
         cycle = build_cycle()
         name = f"cycle_{cycle['issue']['init_utc'][:13].replace(':', '').replace('-', '')}.json"
         for target in (out / name, out / "latest.json"):
-            target.write_text(json.dumps(cycle, separators=(",", ":"), allow_nan=False), encoding="utf-8")
+            publish_json(target, cycle)
         log.info("cycle %s: %d forecasts -> %s", cycle["issue"]["init_utc"], len(cycle["forecasts"]), out / name)
     card = build_scorecard()
-    (out / "scorecard.json").write_text(json.dumps(_round(card, 3), separators=(",", ":"), allow_nan=False), encoding="utf-8")
+    publish_json(out / "scorecard.json", _round(card, 3))
     log.info("scorecard: %d rows", len(card["rows"]))
 
 

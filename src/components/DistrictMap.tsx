@@ -77,10 +77,11 @@ function icon(color: string, selected: boolean, alertColor: string | null, name:
 
 function FitOnce({ points }: { points: MapPoint[] }) {
   const map = useMap();
-  const done = useRef(false);
+  const previous = useRef("");
   useEffect(() => {
-    if (done.current || !points.length) return;
-    done.current = true;
+    const key = points.map((p) => `${p.id}:${p.lat}:${p.lon}`).sort().join("|");
+    if (previous.current === key || !points.length) return;
+    previous.current = key;
     map.fitBounds(points.map((s) => [s.lat, s.lon] as [number, number]), { padding: [60, 60], maxZoom: 9 });
   }, [points, map]);
   return null;
@@ -123,9 +124,9 @@ export default function DistrictMap({
       <MapContainer
         center={[15.0, 74.5]}
         zoom={6}
-        minZoom={7}
+        minZoom={4}
         className="h-full w-full"
-        scrollWheelZoom={interactive}
+        scrollWheelZoom={false}
         dragging={interactive}
         zoomControl={interactive}
         attributionControl

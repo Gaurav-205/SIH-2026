@@ -31,14 +31,15 @@ export default function Models() {
         .filter((r) => r.f),
     [c, idx, region, lead]
   );
-  const live = (c?.sources ?? []).filter((s) => s.live);
+  const participating = new Set(rows.flatMap(({ f }) => Object.keys(f.values)));
+  const live = (c?.sources ?? []).filter((s) => participating.has(s.id));
   const weighted = rows.filter((r) => r.f.method === "stage_a");
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         title="Models"
-        description={`How ${live.length} live physics, ensemble and AI models were weighted for day-${lead} rain over ${REGIONS[region].name}, and where they disagree.`}
+        description={`How ${live.length} contributing models were weighted for day-${lead} rain over ${REGIONS[region].name}, and where they disagree.`}
         actions={<Segmented label="Models view" value={tab} onChange={setTab} options={[{ value: "trust", label: "Trust Map" }, { value: "spread", label: "Disagreement" }]} />}
       />
       <LiveState loading={cycle.isLoading} error={cycle.error}>
@@ -66,7 +67,7 @@ export default function Models() {
                   className="h-[460px]"
                 />
               </Card>
-              <Card title="Live models" description="Run times come from each provider's metadata" bodyClassName="p-0">
+              <Card title="Configured sources" description="Run times come from each provider's metadata" bodyClassName="p-0">
                 <ul className="divide-y divide-line text-sm">
                   {c.sources.map((s, i) => (
                     <li key={s.id} className="flex items-center justify-between gap-3 px-5 py-2.5 hover:bg-subtle/30 transition-colors">
@@ -76,7 +77,7 @@ export default function Models() {
                         <span className="text-xs text-muted">{FAMILY_LABEL[s.family]}</span>
                       </span>
                       <span className="num text-xs text-muted">
-                        {s.live ? (s.run_init_utc ? `${s.run_init_utc.slice(0, 16).replace("T", " ")} UTC` : "run time n/a") : "discontinued"}
+                        {s.live ? (s.run_init_utc ? `${s.run_init_utc.slice(0, 16).replace("T", " ")} UTC` : "run time n/a") : "not enabled"}
                       </span>
                     </li>
                   ))}
@@ -130,7 +131,7 @@ export default function Models() {
 
         {c && tab === "spread" && (
           <div className="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
-            <Card title="Spread between models" description="Standard deviation of the live model forecasts (mm)">
+            <Card title="Spread between models" description="Standard deviation of the contributing model forecasts (mm)">
               <DistrictMap
                 points={rows.map((r) => r.p)}
                 colorOf={(p) => spreadColor(idx.get(p.id, lead, "rain")!.spread_sd)}

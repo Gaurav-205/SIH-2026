@@ -21,7 +21,7 @@ import { sourceColor } from "@/lib/imd";
 const features = [
   { icon: Scale, title: "Skill-weighted blending", body: "Each model is weighted by its recent error at each place, so the models that have been right lately count most." },
   { icon: MapPinned, title: "District monitoring", body: "29 districts across Konkan-Goa and Kerala, with every model's live forecast, its verified error and the weight it earned." },
-  { icon: Layers3, title: "Range, not just a number", body: "Best case, most likely and worst case for every district, and the chance of crossing IMD's heavy-rain thresholds." },
+  { icon: Layers3, title: "Range, not just a number", body: "Lower estimate, blend and upper estimate for every district, and the chance of crossing IMD's heavy-rain thresholds." },
   { icon: Boxes, title: "Trust map with reasons", body: "See which model led in every district and why: its recent verified error, its wet or dry bias, and how far it sits from the rest." },
   { icon: BellRing, title: "Alerts you can act on", body: "Station and district alerts against your own threshold, acknowledged per user and exported as CAP 1.2." },
   { icon: ShieldCheck, title: "Verified against IMD", body: "Error by lead day for every model and the blend, scored on archived forecasts against IMD gridded rainfall." },
@@ -57,7 +57,7 @@ function HeroPreview() {
   const bars = [
     { label: "Equal-weight mean", value: f.equal_mean, className: "bg-muted/30" },
     { label: "Bharosa blend", value: f.blend, className: "bg-fg" },
-    { label: "Worst case (P90)", value: f.p90, className: "bg-fg/60" },
+    { label: "Upper estimate (P90)", value: f.p90, className: "bg-fg/60" },
   ];
   const weights = Object.entries(f.weights).sort(([, a], [, b]) => b - a).slice(0, 4);
   return (

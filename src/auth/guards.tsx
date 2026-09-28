@@ -11,11 +11,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       startDemo();
     }
   }, [user, startDemo]);
-  return <>{children}</>;
+  return user ? <>{children}</> : null;
 }
 
 /** New accounts finish onboarding or pass through directly. */
 export function RequireOnboarded({ children }: { children: ReactNode }) {
+  const user = useSession((s) => s.user);
+  const mode = useSession((s) => s.mode);
+  if (mode === "account" && user && !user.onboarded) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 

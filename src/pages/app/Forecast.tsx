@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Badge, Card, PageHeader, Segmented } from "@/components/ui";
 import DistrictMap from "@/components/DistrictMap";
 import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
-import { fmtDay, useCycle, useCycleIndex, type ForecastRec } from "@/data/cycle";
+import { fmtDay, useCycleHistory, useCycle, useCycleIndex, type ForecastRec } from "@/data/cycle";
 import { REGIONS } from "@/data/regions";
 import { useView } from "@/data/state";
 import { IMD_CATEGORIES, imdCategory } from "@/lib/imd";
@@ -12,14 +12,16 @@ import { IMD_CATEGORIES, imdCategory } from "@/lib/imd";
 type View = "p10" | "blend" | "p90" | "equal_mean";
 
 const VIEWS: { value: View; label: string; help: string }[] = [
-  { value: "p10", label: "Best case", help: "10th percentile: 9 in 10 chance of more rain than this" },
-  { value: "blend", label: "Most likely", help: "The Bharosa blend" },
-  { value: "p90", label: "Worst case", help: "90th percentile: 1 in 10 chance of more rain than this" },
+  { value: "p10", label: "Lower estimate", help: "Modelled 10th percentile; provisional uncertainty estimate" },
+  { value: "blend", label: "Blend", help: "The Bharosa blend" },
+  { value: "p90", label: "Upper estimate", help: "Modelled 90th percentile; higher rainfall remains possible" },
   { value: "equal_mean", label: "Equal mean", help: "Plain average of all live models, for comparison" },
 ];
 
 export default function Forecast() {
   const { region, lead, query } = useView();
+  const [params, setParams] = useSearchParams();
+  const history = useCycleHistory();
   const cycle = useCycle();
   const c = cycle.data;
   const idx = useCycleIndex(c);
@@ -44,7 +46,16 @@ export default function Forecast() {
           c ? `24-hour rain ending 08:30 IST on ${fmtDay.format(new Date(c.issue.lead_dates[String(lead)]))} (day ${lead}), blended from ${c.sources.filter((s) => s.live).length} live models. ${viewInfo.help}.` : undefined
         }
       />
-      <LiveState loading={cycle.isLoading} error={cycle.error}>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <label htmlFor="forecast-issue" className="text-sm font-medium">Forecast publication</label>
+        <select id="forecast-issue" className="region-select" value={params.get("issue") ?? ""} onChange={(e) => { const next = new URLSearchParams(params); if (e.target.value) next.set("issue", e.target.value); else next.delete("issue"); setParams(next); }}>
+          <option value="">Latest available</option>
+          {(history.data?.issues ?? []).map((issue) => <option key={issue} value={issue}>{issue.slice(0,4)}-{issue.slice(4,6)}-{issue.slice(6,8)} · {issue.slice(9)}:00 UTC</option>)}
+        </select>
+        <p className="text-xs text-muted">{params.get("issue") ? "Archived forecast · not current conditions" : "Past publications are forecasts issued then, not observed rainfall."}</p>
+        {history.error && <p className="text-xs text-warn">Publication history is temporarily unavailable.</p>}
+      </div>
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c}>
         {c && (
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
             <Card title={viewInfo.label} action={<Segmented size="sm" label="Which forecast" value={view} onChange={setView} options={VIEWS.map((x) => ({ value: x.value, label: x.label, title: x.help }))} />}>
@@ -54,7 +65,7 @@ export default function Forecast() {
                 valueOf={(p) => `${Math.round(idx.get(p.id, lead, "rain")![view])} mm`}
                 tooltip={(p) => {
                   const f = idx.get(p.id, lead, "rain")!;
-                  return `Best ${f.p10.toFixed(0)} · likely ${f.blend.toFixed(1)} · worst ${f.p90.toFixed(0)} mm`;
+                  return `P10 ${f.p10.toFixed(0)} · blend ${f.blend.toFixed(1)} · P90 ${f.p90.toFixed(0)} mm`;
                 }}
                 className="h-[520px]"
               />
@@ -74,9 +85,9 @@ export default function Forecast() {
                   <thead>
                     <tr className="border-b border-line bg-subtle/50 text-left text-muted">
                       <th className="px-4 py-2.5 font-semibold">District</th>
-                      <th className="px-2 py-2.5 text-right font-semibold">Best (P10)</th>
+                      <th className="px-2 py-2.5 text-right font-semibold">Lower (P10)</th>
                       <th className="px-2 py-2.5 text-right font-semibold">Blend</th>
-                      <th className="px-2 py-2.5 text-right font-semibold">Worst (P90)</th>
+                      <th className="px-2 py-2.5 text-right font-semibold">Upper (P90)</th>
                       <th className="py-2.5 pl-2 pr-4 text-right font-semibold">Equal</th>
                     </tr>
                   </thead>

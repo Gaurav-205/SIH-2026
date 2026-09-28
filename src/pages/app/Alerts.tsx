@@ -5,13 +5,17 @@ import { Badge, Button, Card, PageHeader, Segmented } from "@/components/ui";
 import AlertItem from "@/components/AlertItem";
 import LiveState from "@/components/LiveState";
 import { issueId, useAlerts } from "@/data/alerts";
+import { useView } from "@/data/state";
 import { REGIONS } from "@/data/regions";
 import { exportCapJson, exportCapXml } from "@/lib/exportUtils";
 
 type Filter = "open" | "acked" | "all";
 
 export default function Alerts() {
-  const { alerts, open, acks, toggle, error, cycle, threshold, lead } = useAlerts();
+  const { alerts: allAlerts, acks, toggle, error, cycle, threshold, lead } = useAlerts();
+  const { region } = useView();
+  const alerts = allAlerts.filter((a) => cycle.data?.points.find((p) => p.id === a.pointId)?.region === region);
+  const open = alerts.filter((a) => !acks[a.id]);
   const [filter, setFilter] = useState<Filter>("open");
   const c = cycle.data;
   const acked = alerts.filter((a) => acks[a.id]);
@@ -22,7 +26,7 @@ export default function Alerts() {
     <div className="animate-fade-in">
       <PageHeader
         title="Alerts"
-        description={`Districts reaching an IMD alert level, or with at least an even chance of ≥ ${threshold} mm (your threshold), for day ${lead}. Acknowledge each one so your team knows it has been seen.`}
+        description={`Prototype alerts using IMD rainfall thresholds, or with at least an even chance of ≥ ${threshold} mm (your threshold), for day ${lead}. Acknowledgements are saved for your account and do not resolve the hazard.`}
         actions={
           <>
             <Button variant="secondary" size="sm" disabled={!alerts.length || !capCtx} onClick={() => capCtx && exportCapXml(alerts, capCtx)}>
@@ -37,7 +41,8 @@ export default function Alerts() {
           </>
         }
       />
-      <LiveState loading={cycle.isLoading} error={cycle.error}>
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c}>
+        <p className="mb-4 rounded-xl border border-warn/20 bg-warn-soft p-4 text-sm text-warn">These are model-derived prototype alerts, not official warnings. <a href="https://mausam.imd.gov.in/" target="_blank" rel="noreferrer" className="underline font-semibold">Check official IMD guidance ↗</a></p>
         {error && (
           <div role="alert" className="mb-4 flex gap-2 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -61,7 +66,7 @@ export default function Alerts() {
           </p>
         </div>
         <div className="space-y-6">
-          {(Object.keys(REGIONS) as (keyof typeof REGIONS)[]).map((rid) => {
+          {([region]).map((rid) => {
             const items = shown.filter((a) => c?.points.find((p) => p.id === a.pointId)?.region === rid);
             return (
               <Card

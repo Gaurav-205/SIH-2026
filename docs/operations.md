@@ -53,3 +53,31 @@ On Linux, use cron: `30 5 * * * cd /srv/bharosa && ml/.venv/bin/python -m ml.dai
 `ml/cache/imd` (the IMD mirror) and `ml/data/forecasts` are the expensive parts to rebuild; the IMD mirror
 also protects against the IMD server being offline. `ml/artifacts` holds the frozen models, and
 `backend/bharosa.db` holds user accounts. Back these up; everything else can be regenerated.
+
+
+## Publication monitoring and administrator access
+
+`GET /api/v1/health` reports publication status, not merely file existence. Both the forecast issue
+and publication must be no more than 24 hours old. Invalid timestamps, empty records, missing
+exports and malformed JSON are explicit states. Republishing an old issue does not make it fresh.
+The pipeline writes each JSON export atomically using a temporary file and replacement; this
+protects individual files, not a transaction spanning every export.
+
+The separate `/admin` page uses `GET /api/v1/admin/overview`. Set `BHAROSA_ADMIN_USER_IDS` on the
+**backend process** to a comma-separated list of verified account IDs. Resolve IDs in the backend
+account database; do not infer them from a display name or professional role. An unset/empty list
+grants no administrator access. Profile updates cannot assign this privilege. Removing an ID
+revokes API access on the next request. Never place this setting in a `VITE_` environment variable.
+
+This dashboard provides read-only publication freshness, contributing-source counts, export
+presence and aggregate account/acknowledgement counts. It does not run jobs or expose credentials.
+Source participation means values occur in the published records; it is not a current provider
+health probe. Persisted job logs, audited retries and configuration changes remain future work.
+
+Environmental context has independent provider failure states and a bounded process-local cache
+(5 minutes for available products, 1 minute after partial failures). Multiple API workers need a
+shared cache/rate budget before scaling. Air quality and marine/surface products are modelled,
+not local station observations. Check provider terms and production access before deployment.
+
+Run the API with a persistent database/storage volume and backups. Static frontend hosting alone
+does not provide the API or durable account storage. This redesign does not deploy those services.

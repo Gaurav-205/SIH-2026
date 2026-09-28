@@ -113,7 +113,7 @@ interface SegmentedProps<T extends string | number> {
 
 export function Segmented<T extends string | number>({ value, onChange, options, size = "md", label }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-lg border border-line bg-subtle p-0.5">
+    <div role="group" aria-label={label} className="inline-flex max-w-full flex-wrap rounded-lg border border-line bg-subtle p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
@@ -158,7 +158,7 @@ export function Card({
   return (
     <section className={cx("card transition-shadow duration-150 hover:shadow-card", className)}>
       {(title || action || badge) && (
-        <header className="flex items-start justify-between gap-4 border-b border-line/80 px-5 py-3.5">
+        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line/80 px-5 py-3.5">
           <div className="min-w-0">
             {title && (
               <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function Card({
             )}
             {description && <p className="mt-0.5 text-xs text-muted leading-relaxed">{description}</p>}
           </div>
-          {action && <div className="flex-shrink-0 pt-0.5">{action}</div>}
+          {action && <div className="max-w-full pt-0.5">{action}</div>}
         </header>
       )}
       <div className={cx("p-5", bodyClassName)}>{children}</div>
@@ -180,10 +180,10 @@ export function Card({
 type Tone = "neutral" | "accent" | "ok" | "warn" | "danger";
 const TONES: Record<Tone, string> = {
   neutral: "bg-subtle text-muted border-line",
-  accent: "bg-fg text-surface border-fg font-semibold",
-  ok: "bg-subtle text-fg border-line font-medium",
-  warn: "bg-subtle text-fg border-fg/30 font-medium",
-  danger: "bg-fg text-surface border-fg font-semibold",
+  accent: "bg-accent-soft text-accent border-accent/20 font-semibold",
+  ok: "bg-ok-soft text-ok border-ok/20 font-medium",
+  warn: "bg-warn-soft text-warn border-warn/20 font-medium",
+  danger: "bg-danger-soft text-danger border-danger/20 font-semibold",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {

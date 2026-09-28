@@ -183,3 +183,9 @@ def record_failure(key: str) -> None:
 
 def clear_failures(key: str) -> None:
     _failures.pop(key, None)
+
+
+def is_admin(user_id: int) -> bool:
+    """Server-managed database IDs only; never trust a self-selected profile role."""
+    ids = {x.strip() for x in os.getenv("BHAROSA_ADMIN_USER_IDS", "").split(",") if x.strip().isdigit()}
+    return str(user_id) in ids

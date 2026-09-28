@@ -8,7 +8,7 @@ import { REGIONS, type RegionId } from "@/data/regions";
 
 const ROLE_HELP: Record<Role, string> = {
   forecaster: "Issue bulletins and need the blend, its range and the reasons.",
-  disaster_manager: "Need district risk, worst cases and alerts to act on.",
+  disaster_manager: "Need district risk, upper estimates and alerts to act on.",
   researcher: "Study model skill, disagreement and verification.",
   other: "Exploring how multi-model blending works.",
 };

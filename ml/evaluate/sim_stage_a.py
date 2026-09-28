@@ -1,10 +1,9 @@
 """Simulate and compare baseline models vs Stage A on Pune & Mumbai."""
 
 import pandas as pd
-import numpy as np
-from ml.live.stage_a import load_truth, load_archive, ledger, blend_one
+
 from ml.evaluate import scores
-from ml.common import config
+from ml.live.stage_a import blend_one, ledger, load_archive, load_truth
 
 truth = load_truth()
 archive = load_archive()
@@ -38,16 +37,16 @@ for _, row in dates_points.iterrows():
     d = row["date"]
     pid = row["point_id"]
     obs_val = eval_df[(eval_df["date"] == d) & (eval_df["point_id"] == pid)]["obs"].iloc[0]
-    
+
     # Live values for this point-date
     sub = eval_df[(eval_df["date"] == d) & (eval_df["point_id"] == pid)]
     if len(sub) < 3:
         continue
-    values = dict(zip(sub["source"], sub["value"]))
-    
+    values = dict(zip(sub["source"], sub["value"], strict=True))
+
     # As of date for no leakage (for lead 1, valid date d minus 1 day)
     as_of = d - pd.Timedelta(days=1)
-    
+
     # Build ledger up to as_of
     led = ledger(archive, truth, as_of)
     if len(led):
@@ -57,11 +56,11 @@ for _, row in dates_points.iterrows():
             skill = pd.DataFrame()
     else:
         skill = pd.DataFrame()
-        
+
     b = blend_one("rain", values, skill)
     if not b:
         continue
-        
+
     res = {
         "date": d,
         "point_id": pid,
@@ -76,10 +75,15 @@ for _, row in dates_points.iterrows():
 res_df = pd.DataFrame(results)
 print(f"Evaluated {len(res_df)} point-dates.")
 
+
 def print_metrics(name, pred, obs):
     c = scores.continuous(pred, obs)
     cat = scores.categorical(pred, obs, 64.5)
-    print(f"{name:30s}: MAE={c['mae']:6.2f} mm | RMSE={c['rmse']:6.2f} mm | Bias={c['bias']:+6.2f} mm | Corr={c['corr']:5.3f} | ETS_64.5={cat['ets']:5.3f}")
+    print(
+        f"{name:30s}: MAE={c['mae']:6.2f} mm | "
+        f"RMSE={c['rmse']:6.2f} mm | Bias={c['bias']:+6.2f} mm | Corr={c['corr']:5.3f} | ETS_64.5={cat['ets']:5.3f}"
+    )
+
 
 print("\n=== OVERALL BENCHMARK (Pune Ghats, Pune Plains, Mumbai - Monsoon 2024) ===")
 obs = res_df["obs"].to_numpy()

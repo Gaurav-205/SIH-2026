@@ -3,8 +3,8 @@ import type { AppAlert } from "@/data/alerts";
 import { Badge, Button } from "./ui";
 import { cx } from "@/lib/cx";
 
-const TONE = { Red: "danger", Orange: "warn", Yellow: "neutral" } as const;
-const BAR = { Red: "bg-fg", Orange: "bg-fg/70", Yellow: "bg-fg/40" } as const;
+const TONE = { Red: "danger", Orange: "warn", Yellow: "warn" } as const;
+const BAR = { Red: "bg-danger", Orange: "bg-orange-500", Yellow: "bg-yellow-500" } as const;
 const timeFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export default function AlertItem({

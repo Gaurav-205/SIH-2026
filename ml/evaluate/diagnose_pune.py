@@ -1,9 +1,9 @@
 """Evaluate current model performance and diagnose areas for refinement on Pune and Mumbai."""
 
 import pandas as pd
-import numpy as np
-from ml.live.stage_a import load_truth, load_archive, ledger, blend_one
+
 from ml.evaluate import scores
+from ml.live.stage_a import load_archive, load_truth
 
 truth = load_truth()
 archive = load_archive()
@@ -29,15 +29,9 @@ for src, g in lead1.groupby("source"):
     f, o = g["value"].to_numpy(), g["obs"].to_numpy()
     c = scores.continuous(f, o)
     cat = scores.categorical(f, o, 64.5)
-    stats.append({
-        "source": src,
-        "n": len(g),
-        "mae": c["mae"],
-        "rmse": c["rmse"],
-        "bias": c["bias"],
-        "corr": c["corr"],
-        "ets_64_5": cat["ets"]
-    })
+    stats.append(
+        {"source": src, "n": len(g), "mae": c["mae"], "rmse": c["rmse"], "bias": c["bias"], "corr": c["corr"], "ets_64_5": cat["ets"]}
+    )
 
 df_stats = pd.DataFrame(stats).sort_values("rmse")
 print(df_stats.to_string(index=False))

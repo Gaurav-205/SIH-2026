@@ -21,6 +21,7 @@ const Forecast = lazy(() => import("./pages/app/Forecast"));
 const Models = lazy(() => import("./pages/app/Models"));
 const Alerts = lazy(() => import("./pages/app/Alerts"));
 const Verification = lazy(() => import("./pages/app/Verification"));
+const Admin = lazy(() => import("./pages/admin/Admin"));
 const Settings = lazy(() => import("./pages/app/Settings"));
 
 function Root() {
@@ -48,7 +49,8 @@ const routes = [
       { path: "/login", element: page(<Login />) },
       { path: "/signup", element: page(<Signup />) },
       { path: "/logout", element: <SignOut /> },
-      { path: "/welcome", element: page(<Welcome />) },
+      { path: "/welcome", element: <RequireAuth>{page(<Welcome />)}</RequireAuth> },
+      { path: "/admin", element: page(<Admin />) },
       {
         path: "/app",
         element: (

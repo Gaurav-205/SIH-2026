@@ -60,6 +60,7 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(BaseModel):
+    is_admin: bool = False
     id: int
     name: str
     email: str
@@ -103,6 +104,7 @@ class AlertAck(BaseModel):
 
 def _user_out(row: sqlite3.Row) -> UserOut:
     return UserOut(
+        is_admin=auth.is_admin(row["id"]),
         id=row["id"],
         name=row["name"],
         email=row["email"],

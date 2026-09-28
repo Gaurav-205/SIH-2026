@@ -12,6 +12,7 @@ export type Theme = "light" | "dark" | "system";
 export type Threshold = 64.5 | 115.6 | 204.5;
 
 export interface User {
+  is_admin?: boolean;
   id: number;
   name: string;
   email: string;
@@ -35,8 +36,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 const DEMO_USER: User = {
   id: 0,
-  name: "Duty Forecaster (Maharashtra)",
-  email: "forecaster@imd-pune.gov.in",
+  name: "Guest explorer",
+  email: "Guest session",
   role: "forecaster",
   home_region: "konkan",
   lead_day: 1,

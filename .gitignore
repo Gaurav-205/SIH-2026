@@ -46,3 +46,18 @@ ml/exports/
 
 # validation smoke runs (python -m ml.evaluate.validation --smoke)
 ml/reports/smoke/
+.vercel
+
+# Local audit scripts, browser captures, and disposable verification databases
+work/
+
+# Local architecture extraction cache
+graphify-out/
+
+# Caches and test basetemp
+.pytest_cache/
+**/.pytest_cache/
+.cache/
+**/.cache/
+.tmp/
+**/.tmp/

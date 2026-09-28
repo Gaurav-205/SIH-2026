@@ -3,6 +3,8 @@
  * the backend. Types mirror the exported JSON exactly; the app never fabricates values.
  */
 import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { parseCycle } from "@/features/forecast/contract";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, ApiError } from "@/lib/api";
 import type { AlertLevel } from "@/lib/imd";
@@ -107,9 +109,12 @@ export interface Scorecard {
 }
 
 export function useCycle() {
+  const [params] = useSearchParams();
+  const candidate = params.get("issue");
+  const issue = candidate && /^\d{8}T\d{2}$/.test(candidate) ? candidate : null;
   return useQuery({
-    queryKey: ["cycle"],
-    queryFn: () => apiRequest<Cycle>("GET", "/api/v1/cycle", { timeoutMs: 15000 }),
+    queryKey: ["cycle", issue],
+    queryFn: async () => parseCycle(await apiRequest<unknown>("GET", `/api/v1/cycle${issue ? `?issue=${issue}` : ""}`, { timeoutMs: 15000 })),
     staleTime: 5 * 60_000,
     retry: (count, err) => !(err instanceof ApiError && err.status === 503) && count < 2,
   });
@@ -178,45 +183,12 @@ export function useCycleIndex(cycle: Cycle | undefined) {
   }, [cycle]);
 }
 
-export interface TelemetryData {
-  point_id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  is_coastal: boolean;
-  air_quality: {
-    time?: string;
-    pm2_5?: number;
-    pm10?: number;
-    european_aqi?: number;
-    uv_index?: number;
-  } | null;
-  surface: {
-    time?: string;
-    relative_humidity_2m?: number;
-    surface_pressure?: number;
-    soil_moisture_0_to_1cm?: number;
-  } | null;
-  marine: {
-    time?: string;
-    wave_height?: number;
-    wave_direction?: number;
-    wave_period?: number;
-  } | null;
-  radar: {
-    pune_dwr: string;
-    mumbai_dwr: string;
-    satellite_ir: string;
-  };
-}
-
-export function useTelemetry(pointId: string) {
-  return useQuery({
-    queryKey: ["telemetry", pointId],
-    queryFn: () => apiRequest<TelemetryData>("GET", `/api/v1/telemetry?point_id=${encodeURIComponent(pointId)}`),
-    staleTime: 120_000,
-  });
-}
+export { useTelemetry } from "@/features/environment/api";
+export type { TelemetryData } from "@/features/environment/api";
 
 export const fmtRunTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
 export const fmtDay = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+
+export function useCycleHistory() {
+  return useQuery({ queryKey: ["cycle-history"], queryFn: () => apiRequest<{ issues: string[] }>("GET", "/api/v1/cycles"), staleTime: 300_000, retry: false });
+}

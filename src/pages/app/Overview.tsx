@@ -1,285 +1,86 @@
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Bell, CheckCircle2, CloudRain, Cpu } from "lucide-react";
-import { Badge, Card, PageHeader, Stat } from "@/components/ui";
-import AlertItem from "@/components/AlertItem";
-import DistrictMap from "@/components/DistrictMap";
+import { lazy, Suspense, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowDownRight, ArrowRight, Bell, CloudRain, Layers3, MapPin, ShieldCheck } from "lucide-react";
+import { Badge, Card } from "@/components/ui";
 import LiveState from "@/components/LiveState";
-import { firstName, useSession } from "@/auth/session";
-import { useAlerts } from "@/data/alerts";
-import { fmtDay, fmtRunTime, useCycleIndex } from "@/data/cycle";
-import { REGIONS } from "@/data/regions";
+import { fmtDay, useCycle, useCycleIndex, type ForecastRec } from "@/data/cycle";
 import { useView } from "@/data/state";
+import { REGIONS } from "@/data/regions";
 import { imdCategory } from "@/lib/imd";
-
-function greeting() {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-}
-
+import { districtLink, selectDistrict } from "@/features/forecast/domain";
+import Freshness from "@/features/forecast/Freshness";
+const SpatialOutlook = lazy(() => import("@/visualizations/SpatialOutlook"));
 export default function Overview() {
-  const user = useSession((s) => s.user)!;
-  const mode = useSession((s) => s.mode);
-  const { region, lead, query } = useView();
-  const { alerts, open, acks, toggle, cycle } = useAlerts();
-  const idx = useCycleIndex(cycle.data);
+  const cycle = useCycle();
   const c = cycle.data;
-
-  const rows = useMemo(() => {
-    if (!c) return [];
-    return c.points
-      .filter((p) => p.region === region)
-      .map((p) => ({ p, f: idx.get(p.id, lead, "rain") }))
-      .filter((r) => r.f)
-      .sort((a, b) => b.f!.blend - a.f!.blend);
-  }, [c, idx, region, lead]);
-
-  const live = c?.sources.filter((s) => s.live) ?? [];
-  const ai = live.filter((s) => s.family === "ai");
-  const weighted = rows.filter((r) => r.f!.method === "stage_a").length;
-  const regionOpen = open.filter((a) => rows.some((r) => r.p.id === a.pointId));
-
-  return (
-    <div className="animate-fade-in">
-      <PageHeader
-        title={mode === "demo" ? `${greeting()} — welcome to the demo` : `${greeting()}, ${firstName(user)}`}
-        description={
-          c ? (
-            <>
-              {REGIONS[region].name} · rain day ending 08:30 IST {fmtDay.format(new Date(c.issue.lead_dates[String(lead)]))} (day {lead}) · models run{" "}
-              {fmtRunTime.format(new Date(c.issue.init_utc))} UTC
-            </>
-          ) : undefined
-        }
-      />
-      <LiveState loading={cycle.isLoading} error={cycle.error}>
-        {c && (
-          <>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              <Stat
-                label="Open alerts"
-                value={regionOpen.length}
-                sub={`${alerts.length - open.length} of ${alerts.length} acknowledged (both regions)`}
-                tone={regionOpen.some((a) => a.level === "Red") ? "danger" : regionOpen.length ? "warn" : "ok"}
-                icon={<Bell className="h-4 w-4" />}
-              />
-              <Stat
-                label="Wettest district"
-                value={rows[0] ? `${Math.round(rows[0].f!.blend)} mm` : "—"}
-                sub={rows[0] ? `${rows[0].p.name} · up to ${Math.round(rows[0].f!.p90)} mm worst case` : undefined}
-                tone="accent"
-                icon={<CloudRain className="h-4 w-4" />}
-              />
-              <Stat
-                label="Models blended"
-                value={live.length}
-                sub={`${ai.length} AI (${ai.map((s) => s.label).join(", ")}) · rest physics/ensemble`}
-                icon={<Cpu className="h-4 w-4" />}
-              />
-              <Stat
-                label="Skill-weighted districts"
-                value={`${weighted}/${rows.length}`}
-                sub={c.truth.latest_rain_truth_date ? `IMD rain verified to ${c.truth.latest_rain_truth_date}` : "No verified rain yet"}
-                tone={weighted ? "ok" : "warn"}
-                icon={<CheckCircle2 className="h-4 w-4" />}
-              />
-            </div>
-            {weighted < rows.length && (
-              <p className="mt-3 rounded-lg border border-warn/25 bg-warn-soft px-3 py-2 text-sm text-warn">
-                {rows.length - weighted} districts are shown as an equal-weight mean: their models don't yet have {c.method.min_pairs} verified
-                days in the last {c.method.window_days}. They switch to skill weighting as archived forecasts and IMD truth accumulate.
-              </p>
-            )}
-
-            {/* Pune & Mumbai Meteorological Spotlight */}
-            <div className="mt-6 rounded-2xl border border-line bg-gradient-to-br from-subtle/80 via-surface to-surface p-5 shadow-xs">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 rounded-full bg-fg animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-fg">Maharashtra Focus Hub</span>
-                  </div>
-                  <h3 className="mt-1 text-base font-semibold text-fg">Pune & Mumbai Microclimate Intelligence</h3>
-                  <p className="text-xs text-muted">
-                    High-resolution multi-model blending targeting Pune's dual orographic zones (Ghats vs Plains) and Mumbai coastal MMR.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-ghats` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
-                  >
-                    Pune Ghats <ArrowRight className="h-3 w-3" />
-                  </Link>
-                  <Link
-                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=pune-plains` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
-                  >
-                    Pune Plains <ArrowRight className="h-3 w-3" />
-                  </Link>
-                  <Link
-                    to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=mumbai` }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-subtle transition shadow-xs"
-                  >
-                    Mumbai MMR <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Sub-cards */}
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {[
-                  {
-                    id: "pune-ghats",
-                    name: "Pune Ghats (Catchment)",
-                    tag: "Catchment Basin",
-                    sub: "Lonavala / Mulshi / Khadakwasla dams",
-                  },
-                  {
-                    id: "pune-plains",
-                    name: "Pune City & Plains",
-                    tag: "Urban Core",
-                    sub: "Shivajinagar / Haveli / Pune Urban",
-                  },
-                  {
-                    id: "mumbai",
-                    name: "Mumbai Metropolitan",
-                    tag: "Coastal MMR",
-                    sub: "Colaba / Santacruz / Harbour",
-                  },
-                ].map((item) => {
-                  const data = idx.get(item.id, lead, "rain");
-                  return (
-                    <Link
-                      key={item.id}
-                      to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${item.id}` }}
-                      className="group block rounded-xl border border-line bg-surface p-4 transition-all hover:border-fg/40 hover:shadow-card"
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="rounded bg-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          {item.tag}
-                        </span>
-                        {data?.alert_level ? (
-                          <Badge tone={data.alert_level === "Red" ? "danger" : "warn"}>{data.alert_level}</Badge>
-                        ) : (
-                          <ArrowRight className="h-3.5 w-3.5 text-muted opacity-0 transition group-hover:opacity-100 group-hover:text-fg" />
-                        )}
-                      </div>
-                      <h4 className="mt-2 text-sm font-semibold text-fg group-hover:text-fg transition-colors">
-                        {item.name}
-                      </h4>
-                      <div className="mt-2 flex items-baseline gap-1.5">
-                        <span className="text-2xl font-bold tracking-tight text-fg">
-                          {data ? data.blend.toFixed(1) : "—"}
-                        </span>
-                        <span className="text-xs font-medium text-muted">mm/24h</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted">
-                        <span>Range: <b className="text-fg">{data ? `${data.p10.toFixed(0)}–${data.p90.toFixed(0)}` : "—"}</b> mm</span>
-                        <span>Equal: <b className="text-fg">{data ? data.equal_mean.toFixed(1) : "—"}</b> mm</span>
-                      </div>
-                      <p className="mt-2 border-t border-line/60 pt-2 text-[11px] text-muted truncate">
-                        {item.sub}
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-              <Card
-                title={`Rainfall Map · ${REGIONS[region].name}`}
-                description="Blended 24-hour forecast distribution per district"
-                action={
-                  <Link to={{ pathname: "/app/forecast", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
-                    Detailed forecast <ArrowRight className="h-3 w-3" />
-                  </Link>
-                }
-              >
-                <DistrictMap
-                  points={rows.map((r) => ({ ...r.p, alert: r.f!.alert_level }))}
-                  colorOf={(p) => imdCategory(idx.get(p.id, lead, "rain")!.blend).color}
-                  valueOf={(p) => `${Math.round(idx.get(p.id, lead, "rain")!.blend)} mm`}
-                  tooltip={(p) => {
-                    const f = idx.get(p.id, lead, "rain")!;
-                    return `${f.blend.toFixed(1)} mm (range ${f.p10.toFixed(0)}–${f.p90.toFixed(0)}) · equal mean ${f.equal_mean.toFixed(1)} mm`;
-                  }}
-                  className="h-[400px]"
-                />
-              </Card>
-
-              <div className="flex flex-col gap-6">
-                <Card
-                  title="Needs attention"
-                  description={`IMD alerts or ≥50% chance of exceeding ${user.alert_threshold} mm`}
-                  action={
-                    <Link to={{ pathname: "/app/alerts", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
-                      All alerts ({regionOpen.length}) <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  }
-                  badge={regionOpen.length > 0 ? <Badge tone="warn">{regionOpen.length} active</Badge> : undefined}
-                  bodyClassName="py-1"
-                >
-                  {regionOpen.length === 0 ? (
-                    <div className="flex items-center justify-center gap-3 py-6 text-center">
-                      <CheckCircle2 className="h-5 w-5 text-fg flex-shrink-0" />
-                      <div className="text-left">
-                        <p className="text-sm font-semibold text-fg">All clear</p>
-                        <p className="text-xs text-muted">No open alerts in {REGIONS[region].name} for day {lead}.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-line">
-                      {regionOpen.slice(0, 4).map((a) => (
-                        <AlertItem key={a.id} alert={a} ackedAt={acks[a.id]} onToggle={(ack) => toggle(a.id, ack)} compact />
-                      ))}
-                    </ul>
-                  )}
-                </Card>
-
-                <Card
-                  title="Wettest Districts"
-                  description="Top districts ranked by blended 24h precipitation"
-                  action={
-                    <Link to={{ pathname: "/app/forecast", search: query }} className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline">
-                      Full rankings <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  }
-                  bodyClassName="p-0"
-                >
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-line bg-subtle/50 text-left text-muted">
-                        <th className="py-2.5 pl-4 pr-2 font-semibold">#</th>
-                        <th className="py-2.5 px-2 font-semibold">District</th>
-                        <th className="py-2.5 px-2 text-right font-semibold">Blend</th>
-                        <th className="py-2.5 pr-4 pl-2 text-right font-semibold">Worst (P90)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line">
-                      {rows.slice(0, 5).map(({ p, f }, rank) => (
-                        <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
-                          <td className="py-2 pl-4 pr-2 font-semibold text-muted">#{rank + 1}</td>
-                          <td className="py-2 px-2 text-fg">
-                            <Link to={{ pathname: "/app/districts", search: `${query}${query ? "&" : ""}district=${p.id}` }} className="font-medium hover:underline">
-                              {p.name}
-                            </Link>{" "}
-                            {f!.alert_level && <Badge tone={f!.alert_level === "Red" ? "danger" : "warn"}>{f!.alert_level}</Badge>}
-                          </td>
-                          <td className="num py-2 px-2 text-right font-bold text-fg">{f!.blend.toFixed(1)} mm</td>
-                          <td className="num py-2 pr-4 pl-2 text-right text-muted">{f!.p90.toFixed(0)} mm</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
-              </div>
-            </div>
-            <p className="mt-6 text-xs text-muted">{c.attribution}</p>
-          </>
-        )}
-      </LiveState>
+  const idx = useCycleIndex(c);
+  const { region, lead, set, query } = useView();
+  const [params, setParams] = useSearchParams();
+  const [spatial, setSpatial] = useState(false);
+  const points = c?.points.filter((p) => p.region === region) ?? [];
+  const point = selectDistrict(c, region, params.get("district"));
+  const forecast = point ? idx.get(point.id, lead, "rain") : undefined;
+  const outlook = point ? [1, 2, 3, 4, 5].map((d) => idx.get(point.id, d, "rain")).filter((f): f is ForecastRec => !!f) : [];
+  const alerts = points.filter((p) => idx.get(p.id, lead, "rain")?.alert_level);
+  const choose = (id: string) => { const next = new URLSearchParams(params); next.set("district", id); setParams(next, { replace: true }); };
+  return <div className="briefing-page animate-fade-in">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+      <div><p className="eyebrow">YOUR RAINFALL BRIEFING</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Understand the rain ahead.</h1><p className="mt-2 text-sm text-muted">A clearer outlook for {REGIONS[region].name}. One place, five days, the evidence behind it.</p></div>
+      <Freshness cycle={c} />
     </div>
-  );
+    <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
+      {c && <>
+        <section className="forecast-hero" aria-labelledby="place-heading">
+          <div className="hero-contours" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+            <div>
+              <label className="mb-3 flex items-center gap-2 text-xs font-medium text-teal-100" htmlFor="briefing-district"><MapPin size={15} /> CHOOSE YOUR DISTRICT</label>
+              <select id="briefing-district" value={point?.id ?? ""} onChange={(e) => choose(e.target.value)} className="hero-select" disabled={!points.length}>
+                {!points.length && <option>No districts in this region</option>}{points.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <h2 id="place-heading" className="sr-only">Rainfall forecast for {point?.name ?? REGIONS[region].name}</h2>
+              <p className="mt-4 text-sm text-teal-100">24-hour rainfall · {forecast ? fmtDay.format(new Date(forecast.date)) : "No forecast for this day"}</p>
+              <div className="mt-2 flex items-baseline gap-3"><strong className="hero-value">{forecast ? forecast.blend.toFixed(1) : "—"}</strong><span className="text-xl text-teal-100">mm</span></div>
+              <p className="mt-1 text-lg font-medium">{forecast ? imdCategory(forecast.blend).label + " rainfall" : "Forecast unavailable"}</p>
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-teal-100">{forecast ? `Day ${lead} estimate for the rain window ending at 08:30 IST. This is a district-point forecast, not a live rain gauge.` : "Choose another day or check again after the next publication."}</p>
+              {point && <Link to={districtLink(region, point.id, lead)} className="hero-link">Explore this district <ArrowRight size={16} /></Link>}
+            </div>
+            <div className="flex flex-col justify-end gap-4">
+              <div className="hero-evidence">
+                <div className="flex items-center justify-between gap-2"><span className="text-xs uppercase tracking-widest text-teal-100">A range, not a guarantee</span><CloudRain size={20} className="text-teal-200" /></div>
+                <p className="mt-4 text-3xl font-semibold">{forecast ? `${forecast.p10.toFixed(0)}–${forecast.p90.toFixed(0)}` : "—"} <span className="text-sm font-normal text-teal-100">mm</span></p>
+                <div className="uncertainty-rule" aria-hidden="true"><span /></div>
+                <p className="text-xs leading-relaxed text-teal-100">Modelled P10–P90 range. Rain can fall outside this interval; probabilities remain provisional.</p>
+              </div>
+              <div className="flex gap-3 rounded-xl border border-white/15 bg-white/5 p-4 text-sm">
+                <ShieldCheck size={20} className="mt-0.5 shrink-0 text-teal-200" /><div><p className="font-medium">{forecast?.method === "stage_a" ? "Weighted by recent verified skill" : forecast ? "Equal-weight model estimate" : "Evidence available with forecast"}</p><p className="mt-1 text-xs leading-relaxed text-teal-100">{forecast ? `${Object.keys(forecast.weights).length} contributing models. ${forecast.method !== "stage_a" ? "Not enough recent verified history for adaptive weights." : "Compared against IMD observations."}` : "No values are filled in when data is missing."}</p></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="mt-8" aria-labelledby="outlook-heading">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">01 / LOOK AHEAD</p><h2 id="outlook-heading" className="mt-1 text-xl font-semibold">Your five-day outlook</h2></div><button type="button" className="spatial-toggle" aria-pressed={spatial} onClick={() => setSpatial(!spatial)}><Layers3 size={16} />{spatial ? "Hide spatial view" : "Explore in 3D"}</button></div>
+          <div className="forecast-strip">{[1, 2, 3, 4, 5].map((d) => { const f = outlook.find((r) => r.lead === d); return <button type="button" key={d} className={`forecast-day ${d === lead ? "active" : ""}`} aria-pressed={d === lead} onClick={() => set({ lead: d })}>
+            <span className="flex items-center justify-between gap-2 text-xs"><span>{f ? fmtDay.format(new Date(f.date)) : `Day ${d}`}</span><span className="day-index">D{d}</span></span>
+            <CloudRain size={24} className="my-4 opacity-70" aria-hidden="true" /><strong className="block text-2xl">{f ? f.blend.toFixed(1) : "—"}<small className="ml-1 text-xs font-normal">mm</small></strong><span className="mt-2 block text-xs opacity-80">{f ? `${f.p10.toFixed(0)}–${f.p90.toFixed(0)} mm range` : "Not available"}</span>
+          </button>; })}</div>
+          {spatial && <Suspense fallback={<p role="status" className="py-8 text-center text-muted">Opening spatial view…</p>}><SpatialOutlook rows={outlook} selected={lead} onSelect={(d) => set({ lead: d })} /></Suspense>}
+        </section>
+        <section className="mt-9 grid gap-5 lg:grid-cols-[1.3fr_1fr]" aria-label="Explore and take action">
+          <Card title={<span><span className="eyebrow block mb-2">02 / EXPLORE NEARBY</span>The wider picture</span>} description={`Day ${lead} rainfall across your region`} action={<Link to={`/app/forecast?${query}`} className="text-xs font-semibold text-accent">Compare all <ArrowDownRight className="inline h-4 w-4" /></Link>}>
+            <div className="district-list">{points.slice(0, 6).map((p) => { const f = idx.get(p.id, lead, "rain"); return <button type="button" onClick={() => choose(p.id)} className="district-row" key={p.id} aria-pressed={point?.id === p.id}><span className="flex items-center gap-3"><MapPin size={16} className="text-muted" /><span>{p.name}</span></span><span className="num font-semibold">{f ? f.blend.toFixed(1) : "—"}<small className="ml-1 text-xs font-normal text-muted">mm</small></span></button>; })}</div>
+            {!points.length && <p className="text-sm text-muted">No districts are available in this region.</p>}
+          </Card>
+          <Card title={<span><span className="eyebrow block mb-2">03 / PLAN YOUR NEXT STEP</span>Stay informed</span>}>
+            <div className="flex items-start gap-3"><Bell size={20} className="mt-1 text-accent" /><div><p className="text-sm font-semibold">{alerts.length ? `${alerts.length} districts with prototype alerts` : "No prototype alerts in this view"}</p><p className="mt-2 text-sm leading-relaxed text-muted">Review the forecast evidence alongside official guidance. An acknowledged alert is still an alert.</p></div></div>
+            <Link className="action-row mt-5" to={`/app/alerts?${query}`}>Review rainfall alerts <ArrowRight size={16} /></Link>
+            <a className="action-row" href="https://mausam.imd.gov.in/" target="_blank" rel="noreferrer">Official IMD advisories <ArrowRight size={16} /></a>
+            <Link className="action-row" to="/app/verification">How reliable is this forecast? <ArrowRight size={16} /></Link>
+            <div className="mt-4"><Badge>Research prototype · not an official warning</Badge></div>
+          </Card>
+        </section>
+        <p className="mt-7 text-xs leading-relaxed text-muted">{c.attribution} · Run {new Date(c.issue.init_utc).toUTCString()}</p>
+      </>}
+    </LiveState>
+  </div>;
 }

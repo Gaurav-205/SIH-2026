@@ -95,7 +95,7 @@ function buildCap(alerts: AppAlert[], ctx: CapContext) {
     info: alerts.map((a) => ({
       language: "en-IN",
       category: "Met",
-      event: a.level === "Red" ? "Flash Flood / Extremely Heavy Rainfall" : "Heavy Rainfall",
+      event: a.level === "Red" ? "Extremely Heavy Rainfall" : "Heavy Rainfall",
       urgency: CAP_URGENCY[a.level],
       severity: CAP_SEVERITY[a.level],
       certainty: "Likely",

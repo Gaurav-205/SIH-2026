@@ -121,7 +121,7 @@ export function useAcks() {
       qc.setQueryData(key, next);
       return { prev };
     },
-    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
+    onError: (_e, _v, ctx) => qc.setQueryData(key, ctx?.prev ?? {}),
     onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 

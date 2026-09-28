@@ -3,7 +3,9 @@
 > **SIH26081 · NCMRWF, Ministry of Earth Sciences**
 > Blends physics, AI and ensemble forecasts for 29 districts in Konkan & Goa and Kerala. Each model is weighted by how well it has recently verified against IMD observations at that place and lead time.
 
-Every number in the app and in this README comes from code run on real data: live APIs and published datasets. Nothing is hardcoded or simulated. Full documentation is in **[docs/](docs/README.md)**.
+The running app reads pipeline exports and provider APIs; it does not substitute demonstration forecasts when data is missing. Isolated automated tests use explicitly synthetic fixtures. Published scientific claims require the validation protocol and source data described in **[docs/](docs/README.md)**.
+
+See the **[product and codebase review](docs/redesign/PRODUCT_REVIEW.md)** for the redesign rationale and roadmap, and **[implementation and verification](docs/redesign/IMPLEMENTATION.md)** for the delivered changes and remaining gates.
 
 ---
 

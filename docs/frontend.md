@@ -6,21 +6,29 @@ session, React Router for pages and React-Leaflet (Esri gray basemaps, no key) f
 ## User flow
 
 ```
-Landing (/) → Sign up (/signup) → Onboarding (/welcome: role, home region, alert threshold, lead day) → Dashboard (/app)
-           ↘ Log in (/login) ─────────────────────────────────────────────────────────────────────────↗
-           ↘ Explore the demo (no account; same live data; settings kept in this browser)
+/ → /app (guest briefing, no account required)
+/landing → product introduction
+/signup → /welcome (role, region, alert threshold, lead day) → /app
+/login → /app (or onboarding for an unfinished account)
+/admin → separate operations view; server-authorized administrators only
 ```
 
-Guards in [`src/auth/guards.tsx`](../src/auth/guards.tsx) send signed-out visitors to `/login` and back
-afterwards, and keep new accounts in onboarding until it is finished.
+Guests use the same export-backed forecast endpoints. Missing data remains visibly unavailable.
+Account preferences persist in the API; guest preferences stay in this browser. Guards initialize
+guest state before rendering dependent pages and keep unfinished accounts in onboarding.
+
+The application shell lives in `src/layouts/UserLayout.tsx`; `AppShell` is a compatibility facade.
+Forecast validation, freshness and district selection live in `src/features/forecast/`; modelled
+context lives in `src/features/environment/`. The optional, lazy CSS 3D outlook lives in
+`src/visualizations/` and has flat mobile/reduced-motion equivalents.
 
 ## Pages (`src/pages/app/`)
 
 | Page | Shows |
 | :--- | :--- |
-| Overview | greeting, open alerts, wettest districts, run status |
+| Overview / Briefing | selected district, dated five-day outlook, uncertainty, freshness, contributing sources, optional spatial outlook |
 | Districts | map + table; a district's blend, range, probabilities, model weights and the reasons behind them |
-| Forecast | region view for a lead day |
+| Forecast | region view for a lead day, publication history with an explicit archived banner |
 | Models | each model's weight and verified skill, and whether it is weighted or shown only |
 | Alerts | district alerts against your threshold; acknowledge or reopen; CAP 1.2 XML/JSON export |
 | Verification | the scorecard (RMSE with intervals, ETS/POD/FAR) and live consistency checks |

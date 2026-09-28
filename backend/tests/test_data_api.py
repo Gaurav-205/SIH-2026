@@ -1,5 +1,6 @@
 """Data endpoints serve the pipeline's exports verbatim and never invent data."""
 
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -46,9 +47,12 @@ def test_no_cycle_yet_is_an_explicit_503(client):
 
 
 def test_latest_cycle_and_health(client):
-    write("latest.json", cycle_doc("2026-09-25T06:00:00+00:00"))
+    doc = cycle_doc(dt.datetime.now(dt.UTC).isoformat())
+    doc["generated_at"] = dt.datetime.now(dt.UTC).isoformat()
+    doc["forecasts"] = [{"values": {"gfs_global": 12.5}}]
+    write("latest.json", doc)
     write("cycle_20260925T06.json", cycle_doc("2026-09-25T06:00:00+00:00"))
-    assert client.get("/api/v1/cycle").json()["issue"]["init_utc"].startswith("2026-09-25T06")
+    assert client.get("/api/v1/cycle").json()["issue"]["init_utc"] == doc["issue"]["init_utc"]
     h = client.get("/api/v1/health").json()
     assert h["status"] == "operational"
     assert h["cycle"]["live_sources"] == 1 and h["cycle"]["points"] == 1

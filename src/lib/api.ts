@@ -15,7 +15,7 @@ export class ApiError extends Error {
 }
 
 export const OFFLINE_MESSAGE =
-  "Can't reach the Bharosa server. Start it with: uvicorn main:app --port 8000 (in backend/).";
+  "The forecast service is temporarily unavailable. Please try again shortly.";
 
 interface FastApiValidationError {
   loc?: (string | number)[];
