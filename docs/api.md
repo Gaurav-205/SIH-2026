@@ -45,7 +45,7 @@ Weights are rounded to 4 decimals so they still sum to 1 (within 0.001); other n
 | POST | `/api/v1/auth/login` | | log in → `{ token, user }`; throttled after repeated failures |
 | GET | `/api/v1/auth/me` | ✓ | current user |
 | PATCH | `/api/v1/users/me` | ✓ | name, role, home region, default lead day, alert threshold, theme, onboarded |
-| POST | `/api/v1/users/me/password` | ✓ | change password (current password required) |
+| POST | `/api/v1/users/me/password` | ✓ | change password (current password required) → `{ token }`; every earlier token is revoked |
 | POST | `/api/v1/users/me/delete` | ✓ | delete account (password required) |
 | GET | `/api/v1/alerts/acks` | ✓ | acknowledged alert ids |
 | PUT / DELETE | `/api/v1/alerts/acks/{id}` | ✓ | acknowledge / reopen an alert |
@@ -55,7 +55,10 @@ Authenticated calls send `Authorization: Bearer <token>`.
 **Security:**
 - Passwords are hashed with PBKDF2-SHA256 and a per-user salt.
 - Tokens are HS256, signed with `BHAROSA_SECRET` (a random key is generated and stored if unset).
-  They last 7 days by default (`BHAROSA_TOKEN_TTL`).
+  They last 7 days by default (`BHAROSA_TOKEN_TTL`), and carry a fingerprint of the password hash,
+  so changing the password signs out every other session.
+- Malformed tokens and stored hashes are rejected with 401/400, never a server error.
+- Login throttling is per email (5 failures in 5 minutes) and its memory is bounded.
 - A wrong password and an unknown email give the same error.
 - CORS origins come from `BHAROSA_CORS_ORIGINS`.
 

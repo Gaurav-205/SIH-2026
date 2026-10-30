@@ -2,7 +2,9 @@
  * Routes and user flow:
  *   /            landing          ─► /signup ─► /welcome (onboarding) ─► /app
  *   /login       returning users  ─────────────────────────────────────► /app
- *   /app/*       signed-in workspace (Overview, Districts, Forecast, Models, Alerts, Verification, Settings)
+ *   /app/*       workspace (Briefing, Explore, Forecast, Alerts, Model insights, Verification, Preferences).
+ *                Visitors without an account enter as a guest; nothing is gated behind sign-up.
+ *   /admin       read-only operations view for server-designated administrators
  */
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
@@ -44,8 +46,8 @@ const routes = [
     element: <Root />,
     errorElement: <RouteError />,
     children: [
-      { path: "/", element: <Navigate to="/app" replace /> },
-      { path: "/landing", element: <Landing /> },
+      { path: "/", element: <Landing /> },
+      { path: "/landing", element: <Navigate to="/" replace /> },
       { path: "/login", element: page(<Login />) },
       { path: "/signup", element: page(<Signup />) },
       { path: "/logout", element: <SignOut /> },

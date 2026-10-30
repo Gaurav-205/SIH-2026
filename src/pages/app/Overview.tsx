@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDownRight, ArrowRight, Bell, CloudRain, Layers3, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bell, CloudRain, Layers3, MapPin, ShieldCheck } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import LiveState from "@/components/LiveState";
 import { fmtDay, useCycle, useCycleIndex, type ForecastRec } from "@/data/cycle";
@@ -8,7 +8,8 @@ import { useView } from "@/data/state";
 import { REGIONS } from "@/data/regions";
 import { imdCategory } from "@/lib/imd";
 import { districtLink, selectDistrict } from "@/features/forecast/domain";
-import Freshness from "@/features/forecast/Freshness";
+import { buildAlerts } from "@/data/alerts";
+import { useSession } from "@/auth/session";
 const SpatialOutlook = lazy(() => import("@/visualizations/SpatialOutlook"));
 export default function Overview() {
   const cycle = useCycle();
@@ -21,12 +22,21 @@ export default function Overview() {
   const point = selectDistrict(c, region, params.get("district"));
   const forecast = point ? idx.get(point.id, lead, "rain") : undefined;
   const outlook = point ? [1, 2, 3, 4, 5].map((d) => idx.get(point.id, d, "rain")).filter((f): f is ForecastRec => !!f) : [];
-  const alerts = points.filter((p) => idx.get(p.id, lead, "rain")?.alert_level);
+  // Same rule as the Alerts page: IMD alert level, or an even chance of crossing the user's threshold
+  const threshold = useSession((s) => s.user?.alert_threshold ?? 115.6);
+  const alerts = buildAlerts(c, lead, threshold).filter((a) => points.some((p) => p.id === a.pointId));
+  const wettest = points
+    .map((p) => ({ p, f: idx.get(p.id, lead, "rain") }))
+    .sort((a, b) => (b.f?.blend ?? -1) - (a.f?.blend ?? -1))
+    .slice(0, 6);
+  // Where the blend sits inside its P10–P90 range, for the marker on the range bar
+  const markerPct = forecast && forecast.p90 > forecast.p10 ? Math.min(100, Math.max(0, ((forecast.blend - forecast.p10) / (forecast.p90 - forecast.p10)) * 100)) : 50;
   const choose = (id: string) => { const next = new URLSearchParams(params); next.set("district", id); setParams(next, { replace: true }); };
   return <div className="briefing-page animate-fade-in">
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-      <div><p className="eyebrow">YOUR RAINFALL BRIEFING</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Understand the rain ahead.</h1><p className="mt-2 text-sm text-muted">A clearer outlook for {REGIONS[region].name}. One place, five days, the evidence behind it.</p></div>
-      <Freshness cycle={c} />
+    <div className="mb-7">
+      <p className="eyebrow">YOUR RAINFALL BRIEFING</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Understand the rain ahead.</h1>
+      <p className="mt-2 text-sm text-muted">A clearer outlook for {REGIONS[region].name}. One place, five days, the evidence behind it.</p>
     </div>
     <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
       {c && <>
@@ -49,8 +59,8 @@ export default function Overview() {
               <div className="hero-evidence">
                 <div className="flex items-center justify-between gap-2"><span className="text-xs uppercase tracking-widest text-teal-100">A range, not a guarantee</span><CloudRain size={20} className="text-teal-200" /></div>
                 <p className="mt-4 text-3xl font-semibold">{forecast ? `${forecast.p10.toFixed(0)}–${forecast.p90.toFixed(0)}` : "—"} <span className="text-sm font-normal text-teal-100">mm</span></p>
-                <div className="uncertainty-rule" aria-hidden="true"><span /></div>
-                <p className="text-xs leading-relaxed text-teal-100">Modelled P10–P90 range. Rain can fall outside this interval; probabilities remain provisional.</p>
+                <div className="uncertainty-rule" aria-hidden="true"><span style={{ left: `${markerPct}%` }} /></div>
+                <p className="text-xs leading-relaxed text-teal-100">Marker shows the blend within the modelled P10–P90 range. Rain can fall outside this interval; probabilities remain provisional.</p>
               </div>
               <div className="flex gap-3 rounded-xl border border-white/15 bg-white/5 p-4 text-sm">
                 <ShieldCheck size={20} className="mt-0.5 shrink-0 text-teal-200" /><div><p className="font-medium">{forecast?.method === "stage_a" ? "Weighted by recent verified skill" : forecast ? "Equal-weight model estimate" : "Evidence available with forecast"}</p><p className="mt-1 text-xs leading-relaxed text-teal-100">{forecast ? `${Object.keys(forecast.weights).length} contributing models. ${forecast.method !== "stage_a" ? "Not enough recent verified history for adaptive weights." : "Compared against IMD observations."}` : "No values are filled in when data is missing."}</p></div>
@@ -67,12 +77,12 @@ export default function Overview() {
           {spatial && <Suspense fallback={<p role="status" className="py-8 text-center text-muted">Opening spatial view…</p>}><SpatialOutlook rows={outlook} selected={lead} onSelect={(d) => set({ lead: d })} /></Suspense>}
         </section>
         <section className="mt-9 grid gap-5 lg:grid-cols-[1.3fr_1fr]" aria-label="Explore and take action">
-          <Card title={<span><span className="eyebrow block mb-2">02 / EXPLORE NEARBY</span>The wider picture</span>} description={`Day ${lead} rainfall across your region`} action={<Link to={`/app/forecast?${query}`} className="text-xs font-semibold text-accent">Compare all <ArrowDownRight className="inline h-4 w-4" /></Link>}>
-            <div className="district-list">{points.slice(0, 6).map((p) => { const f = idx.get(p.id, lead, "rain"); return <button type="button" onClick={() => choose(p.id)} className="district-row" key={p.id} aria-pressed={point?.id === p.id}><span className="flex items-center gap-3"><MapPin size={16} className="text-muted" /><span>{p.name}</span></span><span className="num font-semibold">{f ? f.blend.toFixed(1) : "—"}<small className="ml-1 text-xs font-normal text-muted">mm</small></span></button>; })}</div>
+          <Card title={<span><span className="eyebrow block mb-2">02 / EXPLORE NEARBY</span>The wider picture</span>} description={`Wettest districts on day ${lead}${points.length > wettest.length ? ` (top ${wettest.length} of ${points.length})` : ""}`} action={<Link to={`/app/forecast?${query}`} className="link inline-flex items-center gap-1 text-xs">Compare all <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+            <div className="district-list">{wettest.map(({ p, f }) => (<button type="button" onClick={() => choose(p.id)} className="district-row" key={p.id} aria-pressed={point?.id === p.id}><span className="flex items-center gap-3"><MapPin size={16} className="text-muted" /><span>{p.name}</span></span><span className="num font-semibold">{f ? f.blend.toFixed(1) : "—"}<small className="ml-1 text-xs font-normal text-muted">mm</small></span></button>))}</div>
             {!points.length && <p className="text-sm text-muted">No districts are available in this region.</p>}
           </Card>
           <Card title={<span><span className="eyebrow block mb-2">03 / PLAN YOUR NEXT STEP</span>Stay informed</span>}>
-            <div className="flex items-start gap-3"><Bell size={20} className="mt-1 text-accent" /><div><p className="text-sm font-semibold">{alerts.length ? `${alerts.length} districts with prototype alerts` : "No prototype alerts in this view"}</p><p className="mt-2 text-sm leading-relaxed text-muted">Review the forecast evidence alongside official guidance. An acknowledged alert is still an alert.</p></div></div>
+            <div className="flex items-start gap-3"><Bell size={20} className="mt-1 text-accent" /><div><p className="text-sm font-semibold">{alerts.length ? `${alerts.length} ${alerts.length === 1 ? "district" : "districts"} with prototype alerts on day ${lead}` : `No prototype alerts on day ${lead}`}</p><p className="mt-2 text-sm leading-relaxed text-muted">Review the forecast evidence alongside official guidance. An acknowledged alert is still an alert.</p></div></div>
             <Link className="action-row mt-5" to={`/app/alerts?${query}`}>Review rainfall alerts <ArrowRight size={16} /></Link>
             <a className="action-row" href="https://mausam.imd.gov.in/" target="_blank" rel="noreferrer">Official IMD advisories <ArrowRight size={16} /></a>
             <Link className="action-row" to="/app/verification">How reliable is this forecast? <ArrowRight size={16} /></Link>

@@ -5,6 +5,7 @@ import { Badge, Card, PageHeader, Segmented, Stat } from "@/components/ui";
 import LiveState from "@/components/LiveState";
 import { cx } from "@/lib/cx";
 import { useCycle, useScorecard, type ScoreRow } from "@/data/cycle";
+import { sourceColor } from "@/lib/imd";
 import ValidationPanel from "./ValidationPanel";
 
 const BLEND = "Bharosa (Stage A)";
@@ -65,6 +66,7 @@ export default function Verification() {
   return (
     <div className="animate-fade-in">
       <PageHeader
+        eyebrow="THE EVIDENCE"
         title="Verification"
         description="Is the blend actually better? Every live model, an equal-weight mean and Bharosa, scored on archived forecasts against IMD rain."
         actions={
@@ -74,10 +76,10 @@ export default function Verification() {
           </>
         }
       />
-      <LiveState loading={card.isLoading} error={card.error} what="the scorecard">
+      <LiveState loading={card.isLoading} error={card.error} what="the scorecard" compact>
         {s && (
           <>
-            <div className="mb-6 flex gap-2 rounded-lg border border-line bg-subtle px-4 py-3 text-sm text-muted">
+            <div className="notice notice-info mb-6 flex gap-2">
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>
                 Truth: {s.truth}. Period {s.periods[period]?.start} to {s.periods[period]?.end}, {s.points} districts. Bharosa uses only errors known before each
@@ -126,8 +128,8 @@ export default function Verification() {
                           contentStyle={{ background: "rgb(var(--surface))", border: "1px solid rgb(var(--line))", borderRadius: 8, fontSize: 12 }} />
                         {chartMethods.map((m, i) => (
                           <Line key={m} type="monotone" dataKey={m} isAnimationActive={false} connectNulls
-                            stroke={m === BLEND ? "rgb(var(--fg))" : m === EQUAL ? "rgb(var(--muted))" : ["#71717a", "#a1a1aa", "#52525b", "#3f3f46"][i % 4]}
-                            strokeWidth={m === BLEND ? 3 : 1.5} strokeDasharray={m === EQUAL ? "4 4" : undefined} dot={{ r: m === BLEND ? 3.5 : 2 }} />
+                            stroke={m === blendKey ? "rgb(var(--accent))" : m === EQUAL ? "rgb(var(--muted))" : sourceColor(i - 2)}
+                            strokeWidth={m === blendKey ? 3 : 1.5} strokeDasharray={m === EQUAL ? "4 4" : undefined} dot={{ r: m === blendKey ? 3.5 : 2 }} />
                         ))}
                       </LineChart>
                     </ResponsiveContainer>
@@ -151,7 +153,7 @@ export default function Verification() {
                       </thead>
                       <tbody className="divide-y divide-line">
                         {methods.map((m) => (
-                          <tr key={m.method} className={cx(m.method === BLEND && "bg-subtle font-bold text-fg")}>
+                          <tr key={m.method} className={cx(m.method === blendKey && "bg-accent-soft/60 font-semibold text-fg")}>
                             <td className="px-5 py-2">{m.label}</td>
                             <td className="num px-2 py-2 text-right">{m.n}</td>
                             <td className="num px-2 py-2 text-right">{num(m.mae, 2)}</td>

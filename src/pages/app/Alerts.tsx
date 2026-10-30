@@ -8,12 +8,14 @@ import { issueId, useAlerts } from "@/data/alerts";
 import { useView } from "@/data/state";
 import { REGIONS } from "@/data/regions";
 import { exportCapJson, exportCapXml } from "@/lib/exportUtils";
+import { useSession } from "@/auth/session";
 
 type Filter = "open" | "acked" | "all";
 
 export default function Alerts() {
   const { alerts: allAlerts, acks, toggle, error, cycle, threshold, lead } = useAlerts();
   const { region } = useView();
+  const mode = useSession((s) => s.mode);
   const alerts = allAlerts.filter((a) => cycle.data?.points.find((p) => p.id === a.pointId)?.region === region);
   const open = alerts.filter((a) => !acks[a.id]);
   const [filter, setFilter] = useState<Filter>("open");
@@ -25,8 +27,9 @@ export default function Alerts() {
   return (
     <div className="animate-fade-in">
       <PageHeader
+        eyebrow="YOUR OUTLOOK"
         title="Alerts"
-        description={`Prototype alerts using IMD rainfall thresholds, or with at least an even chance of ≥ ${threshold} mm (your threshold), for day ${lead}. Acknowledgements are saved for your account and do not resolve the hazard.`}
+        description={`Prototype alerts for day ${lead}: districts at an IMD warning level, or with at least an even chance of ≥ ${threshold} mm (your threshold). Acknowledgements are saved ${mode === "account" ? "to your account" : "in this browser"} and do not resolve the hazard.`}
         actions={
           <>
             <Button variant="secondary" size="sm" disabled={!alerts.length || !capCtx} onClick={() => capCtx && exportCapXml(alerts, capCtx)}>
@@ -41,8 +44,8 @@ export default function Alerts() {
           </>
         }
       />
-      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c}>
-        <p className="mb-4 rounded-xl border border-warn/20 bg-warn-soft p-4 text-sm text-warn">These are model-derived prototype alerts, not official warnings. <a href="https://mausam.imd.gov.in/" target="_blank" rel="noreferrer" className="underline font-semibold">Check official IMD guidance ↗</a></p>
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
+        <p className="notice notice-warn mb-4">These are model-derived prototype alerts, not official warnings. <a href="https://mausam.imd.gov.in/" target="_blank" rel="noreferrer" className="underline font-semibold">Check official IMD guidance ↗</a></p>
         {error && (
           <div role="alert" className="mb-4 flex gap-2 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -72,7 +75,7 @@ export default function Alerts() {
               <Card
                 key={rid}
                 title={REGIONS[rid].name}
-                badge={items.length > 0 ? <Badge tone={items.some((i) => i.level === "Red") ? "danger" : "warn"}>{items.length} {filter}</Badge> : undefined}
+                badge={items.length > 0 ? <Badge tone={items.some((i) => i.level === "Red") ? "danger" : "warn"}>{items.length} {filter === "acked" ? "acknowledged" : filter === "open" ? "open" : "total"}</Badge> : undefined}
                 bodyClassName="py-1"
               >
                 {items.length ? (

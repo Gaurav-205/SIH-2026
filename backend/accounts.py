@@ -78,6 +78,10 @@ class AuthResponse(BaseModel):
     user: UserOut
 
 
+class TokenResponse(BaseModel):
+    token: str
+
+
 class PreferencesUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     role: Role | None = None
@@ -128,12 +132,14 @@ def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Ro
     )
     if not authorization or not authorization.lower().startswith("bearer "):
         raise unauthorized
-    user_id = auth.decode_token(authorization.split(" ", 1)[1].strip())
-    if user_id is None:
+    decoded = auth.decode_token(authorization.split(" ", 1)[1].strip())
+    if decoded is None:
         raise unauthorized
+    user_id, fingerprint = decoded
     with auth.db() as conn:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    if row is None:
+    # A password change revokes every token issued before it
+    if row is None or fingerprint != auth.password_fingerprint(row["password_hash"]):
         raise unauthorized
     return row
 
@@ -151,7 +157,7 @@ def signup(body: SignupRequest):
             row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="An account with this email already exists") from None
-    return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
+    return AuthResponse(token=auth.create_token(row["id"], row["password_hash"]), user=_user_out(row))
 
 
 @router.post("/auth/login", response_model=AuthResponse)
@@ -163,7 +169,7 @@ def login(body: LoginRequest):
         auth.record_failure(body.email)
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     auth.clear_failures(body.email)
-    return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
+    return AuthResponse(token=auth.create_token(row["id"], row["password_hash"]), user=_user_out(row))
 
 
 @router.get("/auth/me", response_model=UserOut)
@@ -191,13 +197,15 @@ def update_me(body: PreferencesUpdate, user: sqlite3.Row = Depends(current_user)
     return _user_out(row)
 
 
-@router.post("/users/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/users/me/password", response_model=TokenResponse)
 def change_password(body: PasswordChange, user: sqlite3.Row = Depends(current_user)):
+    """Changes the password, revokes every existing session and returns a fresh token for this one."""
     if not auth.verify_password(body.current_password, user["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
+    new_hash = auth.hash_password(body.new_password)
     with auth.db() as conn:
-        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (auth.hash_password(body.new_password), user["id"]))
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+    return TokenResponse(token=auth.create_token(user["id"], new_hash))
 
 
 @router.post("/users/me/delete", status_code=status.HTTP_204_NO_CONTENT)

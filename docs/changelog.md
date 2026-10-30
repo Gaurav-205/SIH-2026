@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-30: bug-fix and design pass
+- **Fixes:**
+  - `/` shows the Landing page again (it redirected to `/app`, so sign-out and "Leave demo" looped
+    back into the guest session, and the Landing header always showed "Open dashboard").
+  - Stage A drizzle filter zeroed the blend but could leave P10 above it; P10 now follows (test added).
+  - Changing the password now revokes earlier tokens and returns a fresh one for the current session.
+  - Malformed tokens or stored password hashes return 401/400 instead of a 500.
+  - The login-failure tracker is bounded in memory.
+  - The Briefing's alert count uses the same rule as the Alerts page (including the user's threshold).
+  - The range bar marker shows where the blend sits between P10 and P90 (it was fixed at the middle).
+  - Verification highlights the blend under either export name; the feature list shows the top 12.
+  - Model colours no longer reuse IMD warning colours, and none are invisible on light backgrounds.
+  - `index.html` forced a dark `color-scheme` on the light theme; the saved theme now applies before
+    first paint (no flash).
+  - Empty states name what is missing (scorecard, validation report) instead of always "the outlook".
+  - The 5-day chart caption no longer overflows its card; empty regions show a message.
+  - Landing copy matched the old Stage A constants (inverse square, 20-day half-life); it and
+    `docs/methodology.md` now match `ml/config.yaml` (power 1.5, 14-day half-life).
+  - Malappuram is treated as coastal for wave context.
+- **Design:** one token and component layer in `src/index.css`; a sticky app header with the day and
+  region selectors; accent colour replaces the leftover monochrome styling across pages, onboarding,
+  auth and Landing; new favicon matching the logo.
+
 ## 2026-09-26: data expansion, Stage B, documentation
 - **Validation results (2024, out-of-fold):**
   - Stage B RMSE 13.28 vs Stage A 13.45 at day 1; not yet significant.

@@ -90,14 +90,20 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored: str) -> bool:
+    """False for a wrong password and for any malformed stored hash (never raises)."""
     try:
         algo, iterations, salt_hex, digest_hex = stored.split("$")
-    except ValueError:
+        if algo != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(iterations))
+    except (AttributeError, ValueError):
         return False
-    if algo != "pbkdf2_sha256":
-        return False
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(iterations))
     return hmac.compare_digest(digest.hex(), digest_hex)
+
+
+def password_fingerprint(password_hash: str) -> str:
+    """Short, non-reversible tag of the stored hash. Tokens carry it, so changing the password revokes them."""
+    return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
 
 
 # A real hash to compare against when the email is unknown, so response time
@@ -138,17 +144,18 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def create_token(user_id: int) -> str:
+def create_token(user_id: int, password_hash: str) -> str:
     header = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     now = int(time.time())
-    payload = _b64(json.dumps({"sub": str(user_id), "iat": now, "exp": now + TOKEN_TTL_SECONDS}, separators=(",", ":")).encode())
+    claims = {"sub": str(user_id), "iat": now, "exp": now + TOKEN_TTL_SECONDS, "pwd": password_fingerprint(password_hash)}
+    payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
     signing_input = f"{header}.{payload}".encode()
     signature = _b64(hmac.new(_secret(), signing_input, hashlib.sha256).digest())
     return f"{header}.{payload}.{signature}"
 
 
-def decode_token(token: str) -> int | None:
-    """Returns the user id for a valid, unexpired token, else None."""
+def decode_token(token: str) -> tuple[int, str] | None:
+    """Returns (user id, password fingerprint) for a valid, unexpired token, else None. Never raises."""
     try:
         header, payload, signature = token.split(".")
         expected = _b64(hmac.new(_secret(), f"{header}.{payload}".encode(), hashlib.sha256).digest())
@@ -159,8 +166,9 @@ def decode_token(token: str) -> int | None:
         claims = json.loads(_unb64(payload))
         if int(claims["exp"]) < time.time():
             return None
-        return int(claims["sub"])
-    except (ValueError, KeyError, json.JSONDecodeError):
+        return int(claims["sub"]), str(claims["pwd"])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        # ValueError covers bad base64, invalid UTF-8 and JSONDecodeError; TypeError a non-object payload
         return None
 
 
@@ -168,16 +176,27 @@ def decode_token(token: str) -> int | None:
 
 _MAX_FAILURES = 5
 _WINDOW_SECONDS = 300
+_MAX_TRACKED_KEYS = 10_000
 _failures: dict[str, list[float]] = {}
 
 
 def too_many_failures(key: str) -> bool:
     recent = [t for t in _failures.get(key, []) if time.time() - t < _WINDOW_SECONDS]
-    _failures[key] = recent
+    if recent:
+        _failures[key] = recent
+    else:
+        _failures.pop(key, None)
     return len(recent) >= _MAX_FAILURES
 
 
 def record_failure(key: str) -> None:
+    if key not in _failures and len(_failures) >= _MAX_TRACKED_KEYS:
+        # Bound memory under a flood of distinct emails: drop expired entries, then the oldest key
+        cutoff = time.time() - _WINDOW_SECONDS
+        for k in [k for k, ts in _failures.items() if not ts or ts[-1] < cutoff]:
+            del _failures[k]
+        if len(_failures) >= _MAX_TRACKED_KEYS:
+            del _failures[next(iter(_failures))]
     _failures.setdefault(key, []).append(time.time())
 
 

@@ -12,8 +12,9 @@ function topSource(f: ForecastRec): [string, number] | null {
   return e.length ? e.reduce((a, b) => (b[1] > a[1] ? b : a)) : null;
 }
 
+/** Sequential scale for model disagreement (mm): light = models agree, dark = they disagree strongly. */
 function spreadColor(sd: number) {
-  return sd >= 40 ? "#09090b" : sd >= 20 ? "#3f3f46" : sd >= 10 ? "#71717a" : "#d4d4d8";
+  return sd >= 40 ? "#3b0764" : sd >= 20 ? "#7e22ce" : sd >= 10 ? "#a78bfa" : "#ddd6fe";
 }
 
 export default function Models() {
@@ -38,11 +39,12 @@ export default function Models() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Models"
+        eyebrow="THE EVIDENCE"
+        title="Model insights"
         description={`How ${live.length} contributing models were weighted for day-${lead} rain over ${REGIONS[region].name}, and where they disagree.`}
         actions={<Segmented label="Models view" value={tab} onChange={setTab} options={[{ value: "trust", label: "Trust Map" }, { value: "spread", label: "Disagreement" }]} />}
       />
-      <LiveState loading={cycle.isLoading} error={cycle.error}>
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
         {c && tab === "trust" && (
           <div className="space-y-6">
             {weighted.length === 0 && (
@@ -110,8 +112,8 @@ export default function Models() {
                               style={
                                 w !== undefined
                                   ? {
-                                      background: `rgb(var(--fg) / ${Math.min(0.85, w * 1.6)})`,
-                                      color: w > 0.3 ? "rgb(var(--surface))" : undefined,
+                                      background: `rgb(var(--accent) / ${Math.min(0.85, w * 1.6)})`,
+                                      color: w > 0.3 ? "rgb(var(--accent-fg))" : undefined,
                                     }
                                   : undefined
                               }

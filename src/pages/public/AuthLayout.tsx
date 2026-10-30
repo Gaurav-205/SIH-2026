@@ -25,7 +25,7 @@ export default function AuthLayout({ title, subtitle, children, footer }: { titl
         <p className="text-center text-xs text-muted">SIH26081 · NCMRWF, Ministry of Earth Sciences</p>
       </main>
 
-      <aside className="relative hidden overflow-hidden border-l border-line bg-fg text-surface lg:flex lg:flex-col lg:justify-between lg:p-12" aria-hidden="true">
+      <aside className="relative hidden overflow-hidden text-white lg:flex lg:flex-col lg:justify-between lg:p-12" style={{ background: "linear-gradient(150deg, rgb(var(--hero-from)), rgb(var(--hero-to)))" }} aria-hidden="true">
         <svg className="absolute inset-0 h-full w-full opacity-[0.12]" viewBox="0 0 400 400" preserveAspectRatio="none">
           {Array.from({ length: 9 }, (_, i) => (
             <path key={i} d={`M-20 ${60 + i * 38} C 80 ${20 + i * 38}, 160 ${110 + i * 38}, 260 ${60 + i * 38} S 420 ${40 + i * 38}, 440 ${70 + i * 38}`} fill="none" stroke="currentColor" strokeWidth="1.5" />

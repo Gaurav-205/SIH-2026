@@ -154,7 +154,9 @@ openmeteo:
   backfill_day_limit: 8500         # leaves ~1,400 calls a day for live cycles (~350 each)
 
 # Live cycle, Stage A (plan section 6): bias-correct each source with its recent verified record, then
-# weight by inverse squared recent error. Constants are the plan's defaults, not tuned on test data.
+# weight by inverse recent error raised to `power`. The plan's defaults were half-life 20, power 2 and
+# clip [0.4, 2.5]; they were adjusted in 753983d using 2024 data (never the 2025 test season).
+# See docs/methodology.md.
 blend:
   half_life_days: 14          # decaying average of verified errors (tuned for active/break monsoon regime shifts)
   window_days: 90             # ignore errors older than this

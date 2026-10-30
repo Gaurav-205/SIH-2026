@@ -100,6 +100,13 @@ def test_unrated_sources_are_shown_but_not_weighted():
     assert any("not weighted" in x["text"] for x in r["new"])
 
 
+def test_drizzle_filter_keeps_percentiles_ordered():
+    # 0.1 and 0.3 mm average to 0.2 mm, below the drizzle threshold: the day is treated as dry
+    b = blend_one("rain", {"a": 0.1, "b": 0.3}, pd.DataFrame())
+    assert b["blend"] == 0.0
+    assert 0 <= b["p10"] <= b["blend"] <= b["p90"]
+
+
 def test_missing_values_are_ignored():
     assert blend_one("rain", {"a": np.nan}, pd.DataFrame()) == {}
 

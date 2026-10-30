@@ -169,7 +169,8 @@ def blend_one(var: str, values: dict[str, float], skill: pd.DataFrame) -> dict:
     if var == "rain":
         drizzle = cfg.get("drizzle_threshold_mm", 0.0)
         if drizzle > 0 and blend < drizzle:
-            blend = 0.0
+            # Treat sub-drizzle totals as dry; keep P10 <= blend so the published range stays ordered
+            blend, p10 = 0.0, 0.0
     out = {
         "blend": blend, "p10": p10, "p90": p90, "sigma": sigma,
         "equal_mean": float(raw.mean()), "spread_sd": float(raw.std()),

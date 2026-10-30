@@ -1,17 +1,28 @@
 <!doctype html>
-<html lang="en" style="color-scheme: dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0B1A2C" />
+    <meta name="theme-color" content="#f4f7f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c1b1d" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="Bharosa blends physics, ensemble and AI weather models by how much each has earned trust, and shows the upper estimate instead of averaging it away. SIH26081, NCMRWF / MoES."
+      content="Bharosa blends physics, ensemble and AI weather models by how well each has recently verified against IMD rainfall, and shows the forecast range instead of a single number. SIH26081, NCMRWF / MoES."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Bharosa — Multi-Model Weather AI & Forecast Blending</title>
+    <title>Bharosa · Multi-model rainfall forecast blending</title>
+    <script>
+      // Apply the saved theme before first paint so dark-mode users never see a light flash.
+      try {
+        var theme = (JSON.parse(localStorage.getItem("bharosa.session") || "{}").state || {}).user?.theme || "light";
+        if (theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
+    <noscript>Bharosa needs JavaScript to show the forecast.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

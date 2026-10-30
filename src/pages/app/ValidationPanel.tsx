@@ -71,11 +71,11 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
   const chosen = v?.scores.find((r) => r.lead === lead && r.method === v.chosen_stage_b);
   const boot = (v?.bootstrap ?? []).filter((b) => b.lead === lead);
   const brier = (v?.brier ?? []).filter((b) => b.threshold < 200 && b.method !== "IMD climatology 1991-2020");
-  const importance = v?.importance ?? [];
+  const importance = [...(v?.importance ?? [])].sort((a, b) => b.gain_share - a.gain_share).slice(0, 12);
   const maxGain = Math.max(...importance.map((i) => i.gain_share), 1e-9);
 
   const row = (r: ValidationScore, strong = false) => (
-    <tr key={r.method} className={cx(strong && "bg-subtle font-bold text-fg")}>
+    <tr key={r.method} className={cx(strong && "bg-accent-soft/60 font-semibold text-fg")}>
       <td className="px-5 py-2">{r.method}</td>
       <td className="num px-2 py-2 text-right">{r.n}</td>
       <td className="num px-2 py-2 text-right">{num(r.rmse)}</td>
@@ -94,7 +94,7 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
         How the learned weighting (Stage B) was chosen. Every number is out-of-fold: each month is predicted by models trained without it and without the 10 days
         either side. The held-out 2025 monsoon is not used here.
       </p>
-      <LiveState loading={q.isLoading} error={q.error} what="the validation report">
+      <LiveState loading={q.isLoading} error={q.error} what="the validation report" compact>
         {v && (
           <>
             <Card className="mt-4" title={`All methods and ablations, day ${lead}`} description={`${v.period.start} to ${v.period.end} · ${v.points} districts · truth: ${v.truth}`} bodyClassName="p-0">
@@ -177,7 +177,7 @@ export default function ValidationPanel({ lead, labelOf }: { lead: number; label
                   <li key={i.feature} className="grid grid-cols-[12rem_1fr_3rem] items-center gap-3 text-sm">
                     <span className="truncate text-fg">{FEATURE_LABELS[i.feature] ?? i.feature}</span>
                     <span className="h-2 rounded-full bg-subtle">
-                      <span className="block h-2 rounded-full bg-fg" style={{ width: `${(100 * i.gain_share) / maxGain}%` }} />
+                      <span className="block h-2 rounded-full bg-accent" style={{ width: `${(100 * i.gain_share) / maxGain}%` }} />
                     </span>
                     <span className="num text-right text-xs text-muted">{(100 * i.gain_share).toFixed(1)}%</span>
                   </li>

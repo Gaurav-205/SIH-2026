@@ -56,7 +56,7 @@ function ModelTable({ f, cycle, idx }: { f: ForecastRec; cycle: Cycle; idx: Retu
                   {w !== undefined ? (
                     <span className="flex items-center gap-2">
                       <span className="h-1.5 w-20 rounded-full bg-subtle overflow-hidden">
-                        <span className="block h-1.5 rounded-full transition-all" style={{ width: `${w * 100}%`, background: sourceColor(idx.sourceIndex(id)) }} />
+                        <span className="block h-1.5 rounded-full" style={{ width: `${w * 100}%`, background: sourceColor(idx.sourceIndex(id)) }} />
                       </span>
                       <span className="num w-10 text-right text-xs font-semibold text-fg">{(w * 100).toFixed(0)}%</span>
                     </span>
@@ -83,7 +83,8 @@ function Outlook({ pointId, idx, cycle, lead }: { pointId: string; idx: ReturnTy
     .filter((f): f is ForecastRec => !!f)
     .map((f) => ({ day: `D${f.lead}`, date: f.date, p10: f.p10, band: f.p90 - f.p10, p50: f.blend, p90: f.p90, avg: f.equal_mean }));
   return (
-    <div className="h-52">
+    <div>
+      <div className="h-52">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={rows} margin={{ top: 6, right: 8, left: -12, bottom: 0 }}>
           <CartesianGrid stroke="rgb(var(--line))" vertical={false} />
@@ -104,12 +105,13 @@ function Outlook({ pointId, idx, cycle, lead }: { pointId: string; idx: ReturnTy
           />
           <ReferenceLine x={`D${lead}`} stroke="rgb(var(--fg))" strokeDasharray="3 3" />
           <Area dataKey="p10" stackId="b" stroke="none" fill="transparent" isAnimationActive={false} />
-          <Area dataKey="band" stackId="b" stroke="none" fill="rgb(var(--fg))" fillOpacity={0.08} isAnimationActive={false} />
+          <Area dataKey="band" stackId="b" stroke="none" fill="rgb(var(--accent))" fillOpacity={0.14} isAnimationActive={false} />
           <Line dataKey="avg" stroke="rgb(var(--muted))" strokeDasharray="4 4" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-          <Line dataKey="p50" stroke="rgb(var(--fg))" strokeWidth={2} dot={{ r: 2, fill: "rgb(var(--fg))" }} isAnimationActive={false} />
+          <Line dataKey="p50" stroke="rgb(var(--accent))" strokeWidth={2.5} dot={{ r: 3, fill: "rgb(var(--accent))" }} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
-      <p className="-mt-1 text-xs text-muted">Model run {cycle.issue.init_utc.slice(0, 16).replace("T", " ")} UTC · band = 10th–90th percentile · dashed = equal-weight mean</p>
+      </div>
+      <p className="mt-2 text-xs text-muted">Model run {cycle.issue.init_utc.slice(0, 16).replace("T", " ")} UTC · band = 10th–90th percentile · dashed = equal-weight mean</p>
     </div>
   );
 }
@@ -136,6 +138,7 @@ export default function Districts() {
   return (
     <div className="animate-fade-in">
       <PageHeader
+        eyebrow="YOUR OUTLOOK"
         title="Explore your district"
         description="Explore the forecast, its range and the evidence behind each model contribution."
         actions={
@@ -151,11 +154,12 @@ export default function Districts() {
           )
         }
       />
-      <LiveState loading={cycle.isLoading} error={cycle.error}>
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
+        {c && !selected && <p className="notice notice-info">No districts are published for {REGIONS[region].name} in this forecast.</p>}
         {c && selected && (
           <div className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
             <div className="space-y-4">
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs space-y-3">
+              <div className="rounded-xl border border-line bg-surface p-3.5 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="relative flex-1">
                     <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" />
@@ -163,7 +167,7 @@ export default function Districts() {
                       aria-label={`Select district in ${REGIONS[region].name}`}
                       value={selected.id}
                       onChange={(e) => setParam("district", e.target.value)}
-                      className="block h-9 w-full appearance-none rounded-lg border border-line bg-canvas pl-9 pr-8 text-xs font-semibold text-fg shadow-xs transition-colors hover:border-muted focus:border-fg focus:outline-none"
+                      className="block h-10 w-full appearance-none rounded-lg border border-line bg-canvas pl-9 pr-8 text-sm font-semibold text-fg transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
                     >
                       {points.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -212,7 +216,7 @@ export default function Districts() {
                 {f ? (
                   <>
                     <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <div className="rounded-xl border border-line bg-subtle/50 p-3.5 shadow-xs">
+                      <div className="rounded-xl border border-line bg-subtle/50 p-3.5">
                         <dt className="text-xs font-semibold uppercase tracking-wider text-fg">Bharosa Blend</dt>
                         <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
                           {f.blend.toFixed(1)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>
@@ -220,7 +224,7 @@ export default function Districts() {
                         <dd className="mt-1 text-[11px] text-muted">{f.method === "stage_a" ? "Adaptive skill-weighted" : "Equal weights · limited history"}</dd>
                       </div>
 
-                      <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+                      <div className="rounded-xl border border-line bg-surface p-3.5">
                         <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Equal-Weight Mean</dt>
                         <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
                           {f.equal_mean.toFixed(1)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>
@@ -230,7 +234,7 @@ export default function Districts() {
                         </dd>
                       </div>
 
-                      <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+                      <div className="rounded-xl border border-line bg-surface p-3.5">
                         <dt className="text-xs font-semibold uppercase tracking-wider text-muted">Uncertainty (P10–P90)</dt>
                         <dd className="num mt-1.5 flex items-baseline gap-1 text-2xl font-bold text-fg">
                           {f.p10.toFixed(0)}–{f.p90.toFixed(0)} <span className="text-xs font-normal text-muted">{UNITS[v]}</span>

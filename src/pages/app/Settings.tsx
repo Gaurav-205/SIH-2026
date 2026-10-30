@@ -147,7 +147,7 @@ function AppearanceForm() {
             }}
             className={cx(
               "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-all",
-              theme === value ? "border-fg bg-subtle text-fg shadow-sm" : "border-line text-muted hover:text-fg hover:border-fg/40"
+              theme === value ? "border-accent bg-accent-soft text-accent shadow-sm" : "border-line text-muted hover:border-accent/40 hover:text-fg"
             )}
           >
             <Icon className="h-5 w-5" />
@@ -263,7 +263,7 @@ export default function Settings() {
   const mode = useSession((s) => s.mode);
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Settings" description={mode === "demo" ? "Demo settings are kept in this browser only." : "Changes are saved to your account."} />
+      <PageHeader eyebrow="ACCOUNT" title="Preferences" description={mode === "demo" ? "Demo settings are kept in this browser only." : "Changes are saved to your account."} />
       <Card bodyClassName="p-6 sm:p-8">
         <Section title="Profile" description="How you appear in Bharosa.">
           <ProfileForm />

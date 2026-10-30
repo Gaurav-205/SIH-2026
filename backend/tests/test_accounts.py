@@ -113,8 +113,49 @@ def test_change_password(client):
     bad = client.post(url, headers=_bearer(token), json={"current_password": "nope", "new_password": "new-secret-99"})
     assert bad.status_code == 400
     ok = client.post(url, headers=_bearer(token), json={"current_password": "monsoon-2026", "new_password": "new-secret-99"})
-    assert ok.status_code == 204
+    assert ok.status_code == 200
     assert client.post("/api/v1/auth/login", json={"email": email, "password": "new-secret-99"}).status_code == 200
+    # The old token is revoked; the token returned with the change keeps this session signed in
+    assert client.get("/api/v1/auth/me", headers=_bearer(token)).status_code == 401
+    assert client.get("/api/v1/auth/me", headers=_bearer(ok.json()["token"])).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "not-a-token",
+        "a.b.c",
+        "....",
+        # correctly shaped but unsigned, with a non-object payload
+        f"{auth._b64(b'{}')}.{auth._b64(b'[1,2]')}.sig",
+    ],
+)
+def test_malformed_tokens_are_rejected_not_errors(client, token):
+    assert client.get("/api/v1/auth/me", headers=_bearer(token)).status_code == 401
+
+
+def test_signed_token_with_bad_claims_is_rejected(client):
+    import hashlib
+    import hmac
+
+    header = auth._b64(b'{"alg":"HS256","typ":"JWT"}')
+    for claims in (b"[1,2]", b'{"sub":null,"exp":9999999999,"pwd":"x"}', b'{"sub":"1"}'):
+        payload = auth._b64(claims)
+        sig = auth._b64(hmac.new(auth._secret(), f"{header}.{payload}".encode(), hashlib.sha256).digest())
+        assert auth.decode_token(f"{header}.{payload}.{sig}") is None
+
+
+@pytest.mark.parametrize("stored", ["", "garbage", "pbkdf2_sha256$x$zz$00", "pbkdf2_sha256$1$nothex$00", "md5$1$00$00"])
+def test_verify_password_never_raises_on_malformed_hash(stored):
+    assert auth.verify_password("anything", stored) is False
+
+
+def test_failure_tracking_is_bounded(monkeypatch):
+    monkeypatch.setattr(auth, "_MAX_TRACKED_KEYS", 50)
+    monkeypatch.setattr(auth, "_failures", {})
+    for i in range(500):
+        auth.record_failure(f"flood-{i}@example.com")
+    assert len(auth._failures) <= 50
 
 
 def test_alert_acknowledgements(client):

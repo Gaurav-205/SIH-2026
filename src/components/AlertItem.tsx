@@ -2,9 +2,9 @@ import { Check, MapPin, Undo2 } from "lucide-react";
 import type { AppAlert } from "@/data/alerts";
 import { Badge, Button } from "./ui";
 import { cx } from "@/lib/cx";
+import { ALERT_COLORS } from "@/lib/imd";
 
 const TONE = { Red: "danger", Orange: "warn", Yellow: "warn" } as const;
-const BAR = { Red: "bg-danger", Orange: "bg-orange-500", Yellow: "bg-yellow-500" } as const;
 const timeFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export default function AlertItem({
@@ -21,7 +21,7 @@ export default function AlertItem({
   const acked = !!ackedAt;
   return (
     <li className={cx("relative flex items-start gap-3 py-3 pl-4", acked && "opacity-60")}>
-      <span className={cx("absolute bottom-3 left-0 top-3 w-1 rounded-full", BAR[alert.level])} aria-hidden="true" />
+      <span className="absolute bottom-3 left-0 top-3 w-1 rounded-full" style={{ background: ALERT_COLORS[alert.level] }} aria-hidden="true" />
       <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">

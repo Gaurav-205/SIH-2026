@@ -6,8 +6,8 @@ session, React Router for pages and React-Leaflet (Esri gray basemaps, no key) f
 ## User flow
 
 ```
-/ → /app (guest briefing, no account required)
-/landing → product introduction
+/ → product introduction (Landing); "Explore the demo" → /app as a guest
+/app → guest briefing if nobody is signed in (no account required)
 /signup → /welcome (role, region, alert threshold, lead day) → /app
 /login → /app (or onboarding for an unfinished account)
 /admin → separate operations view; server-authorized administrators only
@@ -17,7 +17,21 @@ Guests use the same export-backed forecast endpoints. Missing data remains visib
 Account preferences persist in the API; guest preferences stay in this browser. Guards initialize
 guest state before rendering dependent pages and keep unfinished accounts in onboarding.
 
-The application shell lives in `src/layouts/UserLayout.tsx`; `AppShell` is a compatibility facade.
+The application shell lives in `src/layouts/UserLayout.tsx` (`AppShell` re-exports it). Its sticky
+header holds the page title, data freshness, the forecast-day selector and the region selector, all
+stored in the URL so every view can be shared.
+
+## Design system
+
+- **Tokens:** semantic colours (`canvas`, `surface`, `subtle`, `line`, `fg`, `muted`, `accent`, `ok`,
+  `warn`, `danger`) are RGB CSS variables in [`src/index.css`](../src/index.css), swapped by the
+  `dark` class on `<html>`. `index.html` applies the saved theme before first paint.
+- **Primitives:** [`src/components/ui.tsx`](../src/components/ui.tsx) (`Button`, `Field`, `Select`,
+  `Segmented`, `Card`, `Badge`, `Stat`, `PageHeader`) plus CSS classes `.card`, `.btn-outline`,
+  `.notice-*`, `.data-table`, `.eyebrow`.
+- **Colour meaning:** IMD rain categories and warning levels own teal → yellow → orange → red. Model
+  sources use a separate categorical palette (`sourceColor` in `src/lib/imd.ts`) that never reuses a
+  hazard hue. Model disagreement uses a violet sequential scale.
 Forecast validation, freshness and district selection live in `src/features/forecast/`; modelled
 context lives in `src/features/environment/`. The optional, lazy CSS 3D outlook lives in
 `src/visualizations/` and has flat mobile/reduced-motion equivalents.
@@ -32,7 +46,7 @@ context lives in `src/features/environment/`. The optional, lazy CSS 3D outlook 
 | Models | each model's weight and verified skill, and whether it is weighted or shown only |
 | Alerts | district alerts against your threshold; acknowledge or reopen; CAP 1.2 XML/JSON export |
 | Verification | the scorecard (RMSE with intervals, ETS/POD/FAR) and live consistency checks |
-| Settings | profile, preferences, theme, password, account deletion |
+| Settings (Preferences) | profile, preferences, theme, password, account deletion |
 
 ## Data
 

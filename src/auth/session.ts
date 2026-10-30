@@ -130,10 +130,12 @@ export const useSession = create<SessionState>()(
       },
 
       changePassword: async (current, next) => {
-        await apiRequest<void>("POST", "/api/v1/users/me/password", {
+        // The server revokes every earlier token and returns a fresh one so this device stays signed in
+        const res = await apiRequest<{ token: string }>("POST", "/api/v1/users/me/password", {
           token: get().token,
           body: { current_password: current, new_password: next },
         });
+        set({ token: res.token });
       },
 
       deleteAccount: async (password) => {

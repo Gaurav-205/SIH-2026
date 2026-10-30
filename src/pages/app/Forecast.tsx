@@ -41,6 +41,7 @@ export default function Forecast() {
   return (
     <div className="animate-fade-in">
       <PageHeader
+        eyebrow="YOUR OUTLOOK"
         title={`Rainfall forecast, ${REGIONS[region].name}`}
         description={
           c ? `24-hour rain ending 08:30 IST on ${fmtDay.format(new Date(c.issue.lead_dates[String(lead)]))} (day ${lead}), blended from ${c.sources.filter((s) => s.live).length} live models. ${viewInfo.help}.` : undefined
@@ -55,8 +56,9 @@ export default function Forecast() {
         <p className="text-xs text-muted">{params.get("issue") ? "Archived forecast · not current conditions" : "Past publications are forecasts issued then, not observed rainfall."}</p>
         {history.error && <p className="text-xs text-warn">Publication history is temporarily unavailable.</p>}
       </div>
-      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c}>
-        {c && (
+      <LiveState loading={cycle.isLoading} error={cycle.error} hasData={!!c} onRetry={() => cycle.refetch()}>
+        {c && !rows.length && <p className="notice notice-info">No day-{lead} rainfall forecasts are published for {REGIONS[region].name} in this cycle.</p>}
+        {c && rows.length > 0 && (
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
             <Card title={viewInfo.label} action={<Segmented size="sm" label="Which forecast" value={view} onChange={setView} options={VIEWS.map((x) => ({ value: x.value, label: x.label, title: x.help }))} />}>
               <DistrictMap

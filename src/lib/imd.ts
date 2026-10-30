@@ -21,8 +21,12 @@ export const ALERT_COLORS: Record<AlertLevel, string> = { Red: "#b42e48", Orange
 
 export const FAMILY_LABEL: Record<string, string> = { physics: "Physics NWP", ai: "AI / ML", ensemble: "Ensemble" };
 
-/** Distinct categorical palette assigned to sources in the order the cycle lists them. */
-const PALETTE = ["#b42e48", "#d3a62b", "#73b9af", "#d86a2c", "#218e85", "#c6dfd6", "#18181b", "#3f3f46", "#8e8e99", "#333338", "#b5b5be", "#4b4b52", "#e4e4e7"];
+/**
+ * Categorical palette assigned to sources in the order the cycle lists them. It deliberately avoids the
+ * IMD warning hues (yellow, orange, red) and the rain-category teals, so a model colour is never read as
+ * a hazard level, and every colour stays visible on both light and dark backgrounds.
+ */
+const PALETTE = ["#2f6fde", "#8b5cf6", "#d0468c", "#0891b2", "#65a30d", "#7c5a3a", "#4f46e5", "#be185d", "#15803d", "#64748b", "#a21caf", "#0369a1"];
 
 export function sourceColor(index: number): string {
   return PALETTE[index % PALETTE.length];

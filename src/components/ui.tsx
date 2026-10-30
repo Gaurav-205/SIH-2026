@@ -156,7 +156,7 @@ export function Card({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cx("card transition-shadow duration-150 hover:shadow-card", className)}>
+    <section className={cx("card", className)}>
       {(title || action || badge) && (
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line/80 px-5 py-3.5">
           <div className="min-w-0">
@@ -172,7 +172,7 @@ export function Card({
         </header>
       )}
       <div className={cx("p-5", bodyClassName)}>{children}</div>
-      {footer && <footer className="border-t border-line/80 bg-subtle/40 px-5 py-3 text-xs text-muted rounded-b-xl">{footer}</footer>}
+      {footer && <footer className="rounded-b-[var(--radius)] border-t border-line/80 bg-subtle/40 px-5 py-3 text-xs text-muted">{footer}</footer>}
     </section>
   );
 }
@@ -218,11 +218,12 @@ export function Logo({ className, showText = true }: { className?: string; showT
   );
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-col justify-between gap-4 border-b border-line/60 pb-5 sm:flex-row sm:items-end">
+    <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">{title}</h1>
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{title}</h1>
         {description && <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">{actions}</div>}
@@ -245,31 +246,25 @@ export function Stat({
   icon?: ReactNode;
   badge?: ReactNode;
 }) {
-  const ring: Record<Tone, string> = {
-    neutral: "bg-subtle text-muted border-line",
-    accent: "bg-fg text-surface border-fg",
-    ok: "bg-subtle text-fg border-line",
-    warn: "bg-subtle text-fg border-line",
-    danger: "bg-fg text-surface border-fg",
-  };
-  const borderTone: Record<Tone, string> = {
-    neutral: "border-line",
-    accent: "border-fg/30 hover:border-fg/60",
-    ok: "border-line hover:border-fg/40",
-    warn: "border-line hover:border-fg/40",
-    danger: "border-fg/40 hover:border-fg",
+  const iconTone: Record<Tone, string> = {
+    neutral: "bg-subtle text-muted",
+    accent: "bg-accent-soft text-accent",
+    ok: "bg-ok-soft text-ok",
+    warn: "bg-warn-soft text-warn",
+    danger: "bg-danger-soft text-danger",
   };
   return (
-    <div className={cx("card relative overflow-hidden p-4 sm:p-5 transition-all duration-150 hover:shadow-pop", borderTone[tone])}>
+    <div className={cx("card relative overflow-hidden p-4 sm:p-5", tone === "accent" && "border-accent/40")}>
+      {tone === "accent" && <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden="true" />}
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
         <div className="flex items-center gap-1.5">
           {badge}
-          {icon && <span className={cx("grid h-8 w-8 place-items-center rounded-lg border", ring[tone])}>{icon}</span>}
+          {icon && <span className={cx("grid h-8 w-8 place-items-center rounded-lg", iconTone[tone])}>{icon}</span>}
         </div>
       </div>
-      <p className="num mt-2.5 text-2xl font-bold tracking-tight text-fg sm:text-3xl">{value}</p>
-      {sub && <p className="mt-1.5 text-xs text-muted line-clamp-2 leading-relaxed">{sub}</p>}
+      <p className={cx("num mt-2.5 text-2xl font-bold tracking-tight sm:text-3xl", tone === "accent" ? "text-accent" : "text-fg")}>{value}</p>
+      {sub && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">{sub}</p>}
     </div>
   );
 }

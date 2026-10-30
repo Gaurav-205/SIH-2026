@@ -23,7 +23,7 @@ const features = [
   { icon: MapPinned, title: "District monitoring", body: "29 districts across Konkan-Goa and Kerala, with every model's live forecast, its verified error and the weight it earned." },
   { icon: Layers3, title: "Range, not just a number", body: "Lower estimate, blend and upper estimate for every district, and the chance of crossing IMD's heavy-rain thresholds." },
   { icon: Boxes, title: "Trust map with reasons", body: "See which model led in every district and why: its recent verified error, its wet or dry bias, and how far it sits from the rest." },
-  { icon: BellRing, title: "Alerts you can act on", body: "Station and district alerts against your own threshold, acknowledged per user and exported as CAP 1.2." },
+  { icon: BellRing, title: "Alerts you can act on", body: "District alerts against IMD thresholds and your own, acknowledged per user and exported as CAP 1.2." },
   { icon: ShieldCheck, title: "Verified against IMD", body: "Error by lead day for every model and the blend, scored on archived forecasts against IMD gridded rainfall." },
 ];
 
@@ -56,8 +56,8 @@ function HeroPreview() {
   const max = Math.max(f.p90, ...Object.values(f.values), 1);
   const bars = [
     { label: "Equal-weight mean", value: f.equal_mean, className: "bg-muted/30" },
-    { label: "Bharosa blend", value: f.blend, className: "bg-fg" },
-    { label: "Upper estimate (P90)", value: f.p90, className: "bg-fg/60" },
+    { label: "Bharosa blend", value: f.blend, className: "bg-accent" },
+    { label: "Upper estimate (P90)", value: f.p90, className: "bg-accent/50" },
   ];
   const weights = Object.entries(f.weights).sort(([, a], [, b]) => b - a).slice(0, 4);
   return (
@@ -68,7 +68,7 @@ function HeroPreview() {
           <p className="mt-1 font-semibold text-fg">{top.p.name}</p>
         </div>
         {f.alert_level ? (
-          <span className="inline-flex items-center rounded-full border border-line bg-fg px-2.5 py-0.5 text-xs font-medium text-surface">{f.alert_level} alert</span>
+          <span className="inline-flex items-center rounded-full border border-warn/30 bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">{f.alert_level} alert</span>
         ) : (
           <span className="inline-flex items-center rounded-full border border-line bg-subtle px-2.5 py-0.5 text-xs font-medium text-muted">No alert</span>
         )}
@@ -108,10 +108,11 @@ function HeroPreview() {
 
 export default function Landing() {
   const startDemo = useSession((s) => s.startDemo);
-  const user = useSession((s) => s.user);
+  const mode = useSession((s) => s.mode);
   const navigate = useNavigate();
+  // A signed-in account keeps its session; anyone else enters as a guest.
   const demo = () => {
-    if (!user) startDemo();
+    if (mode !== "account") startDemo();
     navigate("/app");
   };
 
@@ -128,7 +129,7 @@ export default function Landing() {
             <li><a href="#get-started" className="hover:text-fg">Get started</a></li>
           </ul>
           <div className="ml-auto flex items-center gap-2">
-            {user ? (
+            {mode === "account" ? (
               <Link to="/app" className={buttonClass("primary", "sm")}>Open dashboard</Link>
             ) : (
               <>
@@ -145,13 +146,13 @@ export default function Landing() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.1fr_1fr] lg:py-24">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
-              <span className="h-1.5 w-1.5 rounded-full bg-fg" />
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
               SIH26081 · NCMRWF, Ministry of Earth Sciences
             </p>
             <h1 className="mt-6 text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl">
-              Twelve weather models.
+              Physics, AI and ensemble models.
               <br />
-              <span className="text-muted">One forecast you can trust.</span>
+              <span className="text-accent">One forecast you can trust.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted">
               Bharosa scores every physics and AI model against what actually fell, then blends them place by place, so the
@@ -177,8 +178,8 @@ export default function Landing() {
             <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-tight text-fg">Everything a duty forecaster needs for one cycle</h2>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {features.map(({ icon: Icon, title, body }) => (
-                <div key={title} className="rounded-xl border border-line bg-canvas p-6 transition-all hover:border-fg/40">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg border border-line bg-subtle text-fg">
+                <div key={title} className="rounded-xl border border-line bg-canvas p-6 transition-colors hover:border-accent/50">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-accent-soft text-accent">
                     <Icon className="h-5 w-5" />
                   </span>
                   <h3 className="mt-4 font-semibold text-fg">{title}</h3>
@@ -197,7 +198,7 @@ export default function Landing() {
               <h2 className="mt-2 text-3xl font-semibold tracking-tight text-fg">A referee, not a fifth opinion</h2>
               <p className="mt-4 text-muted">
                 A flat average gives every model the same vote. Over the Ghats that erases the extremes that matter most. Bharosa
-                weights each model by the inverse square of its recent error, so trust follows performance.
+                weights each model by its recent verified error at each district, so trust follows performance.
               </p>
               <ul className="mt-6 space-y-3 text-sm text-fg">
                 {[
@@ -206,7 +207,7 @@ export default function Landing() {
                   "Chance of 64.5, 115.6 and 204.5 mm stays correctly ordered",
                 ].map((t) => (
                   <li key={t} className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-fg" />
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent" />
                     {t}
                   </li>
                 ))}
@@ -215,13 +216,13 @@ export default function Landing() {
             <div className="card p-6">
               <p className="text-xs font-medium uppercase tracking-wide text-muted">The blend, in one line</p>
               <p className="mt-4 rounded-lg border border-line bg-subtle px-4 py-5 text-center font-mono text-sm text-fg">
-                w<sub>m</sub> = (MAE<sub>m</sub> + ε)<sup>−2</sup> / Σ<sub>k</sub> (MAE<sub>k</sub> + ε)<sup>−2</sup>
+                w<sub>m</sub> = (MAE<sub>m</sub> + ε)<sup>−1.5</sup> / Σ<sub>k</sub> (MAE<sub>k</sub> + ε)<sup>−1.5</sup>
               </p>
               <p className="mt-3 rounded-lg border border-line bg-subtle px-4 py-5 text-center font-mono text-sm text-fg">
                 blend = Σ<sub>m</sub> w<sub>m</sub> × forecast<sub>m</sub>
               </p>
               <p className="mt-4 text-sm text-muted">
-                MAE is each model's recent error against IMD gridded rain at that district (decaying average, 20-day half-life, last 90 days); each forecast is bias-corrected first, and ε = 0.1 mm keeps the weights stable.
+                MAE is each model's recent error against IMD gridded rain at that district (decaying average, 14-day half-life, last 90 days); each forecast is bias-corrected first, and ε = 0.1 mm keeps the weights stable.
               </p>
             </div>
           </div>
@@ -235,23 +236,23 @@ export default function Landing() {
             <ol className="mt-12 grid gap-6 md:grid-cols-3">
               {steps.map(({ icon: Icon, title, body }, i) => (
                 <li key={title} className="relative rounded-xl border border-line bg-canvas p-6">
-                  <span className="num absolute right-6 top-6 text-sm font-semibold text-muted/50">0{i + 1}</span>
-                  <Icon className="h-5 w-5 text-fg" />
+                  <span className="num absolute right-6 top-6 text-sm font-semibold text-accent/60">0{i + 1}</span>
+                  <Icon className="h-5 w-5 text-accent" />
                   <h3 className="mt-4 font-semibold text-fg">{title}</h3>
                   <p className="mt-2 text-sm text-muted">{body}</p>
                 </li>
               ))}
             </ol>
-            <div className="mt-12 flex flex-col items-start justify-between gap-6 rounded-2xl border border-line bg-fg px-8 py-10 text-surface sm:flex-row sm:items-center">
+            <div className="mt-12 flex flex-col items-start justify-between gap-6 rounded-2xl px-8 py-10 text-white sm:flex-row sm:items-center" style={{ background: "linear-gradient(120deg, rgb(var(--hero-from)), rgb(var(--hero-to)))" }}>
               <div>
-                <p className="text-2xl font-semibold tracking-tight text-surface">Ready for tonight's cycle?</p>
-                <p className="mt-1 text-surface/80">Create an account, or look around the demo first.</p>
+                <p className="text-2xl font-semibold tracking-tight">Ready for tonight's cycle?</p>
+                <p className="mt-1 text-white/80">Create an account, or look around the demo first.</p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Link to="/signup" className="inline-flex h-11 items-center rounded-lg bg-surface px-5 text-sm font-medium text-fg transition-opacity hover:opacity-90">
+                <Link to="/signup" className="inline-flex h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-[#123e38] transition-opacity hover:opacity-90">
                   Create account
                 </Link>
-                <button type="button" onClick={demo} className="inline-flex h-11 items-center rounded-lg border border-surface/30 px-5 text-sm font-medium text-surface transition-colors hover:bg-surface/10">
+                <button type="button" onClick={demo} className="inline-flex h-11 items-center rounded-lg border border-white/40 px-5 text-sm font-medium text-white transition-colors hover:bg-white/10">
                   Explore the demo
                 </button>
               </div>

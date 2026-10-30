@@ -42,7 +42,7 @@ that is, everything already verified when the forecast is issued. Three places e
 ## Stage A: skill ledger and inverse-error blend
 
 For each source s, point, lead and variable, the verified errors in the last 90 days before V − L are
-averaged with a decaying weight 0.5^(age/20 days):
+averaged with a decaying weight 0.5^(age/14 days):
 
 - MAE_s = Σ w |f − o| / Σ w
 - bias_s = Σ w (f − o) / Σ w
@@ -51,18 +51,24 @@ averaged with a decaying weight 0.5^(age/20 days):
 A source needs at least 10 verified pairs at the point, otherwise it uses the pool of its region. If
 neither has 10, it is shown but not weighted.
 
-- **Bias correction:** rain is divided by the ratio, clipped to [0.4, 2.5]. Tmax and wind are corrected
+- **Bias correction:** rain is divided by the ratio, clipped to [0.55, 1.85]. Tmax and wind are corrected
   additively (wind is floored at 0).
-- **Weights:** w_s ∝ (MAE_s + 0.1)⁻², normalised to sum to 1.
+- **Weights:** w_s ∝ (MAE_s + 0.1)^−1.5, normalised to sum to 1.
 - **Blend:** μ = Σ w_s f̃_s, where f̃ is the corrected forecast.
 - **Uncertainty:** σ² = Σ w_s (f̃_s − μ)² + Σ w_s (1.2533 · MAE_s)². The first term is the weighted
   spread; the second turns a MAE into a normal-error variance, since √(π/2) = 1.2533.
 - **Range and probabilities:** P10/P90 = μ ∓ 1.2816 σ (P10 floored at 0). P(rain ≥ T) comes from
   N(μ, σ²) for the IMD thresholds 64.5, 115.6 and 204.5 mm.
+- **Drizzle filter:** a rain blend below 0.25 mm is reported as 0 (and P10 with it), which removes
+  model noise over the leeward rain-shadow plains.
 - **Alerts:** IMD-style colour codes from the blend and those probabilities (rules in `alerts:`).
 
-Stage A has **no fitted parameters**; its constants are the plan's defaults. That makes it safe to
-score on any period, including the test season.
+Stage A has **no fitted parameters**: nothing is estimated by an optimiser. Its constants live in
+`blend:` in [`ml/config.yaml`](../ml/config.yaml). The plan's defaults were a 20-day half-life, power 2
+and a [0.4, 2.5] ratio clip; commit `753983d` changed them to 14 days, 1.5 and [0.55, 1.85] and added
+the drizzle filter after comparisons at Pune and Mumbai. Those choices were made by looking at 2024
+data, so the 2024 validation numbers for Stage A are no longer fully independent of its settings. The
+2025 test season stays untouched, and it is still the only fair score.
 
 ## Stage B: learned gating
 
