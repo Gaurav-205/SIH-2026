@@ -55,7 +55,7 @@ def test_password_is_hashed_at_rest(client):
     email = _email()
     _signup(client, email=email, password="plain-text-pass")
     with auth.db() as conn:
-        stored = conn.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()[0]
+        stored = conn.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()["password_hash"]
     assert stored.startswith("pbkdf2_sha256$") and "plain-text-pass" not in stored
 
 

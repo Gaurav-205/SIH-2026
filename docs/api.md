@@ -54,6 +54,9 @@ Authenticated calls send `Authorization: Bearer <token>`.
 
 **Security:**
 - Passwords are hashed with PBKDF2-SHA256 and a per-user salt.
+- Accounts are stored in SQLite (`backend/bharosa.db`, or `BHAROSA_DB`) unless `BHAROSA_DATABASE_URL`
+  (or `DATABASE_URL`) holds a PostgreSQL URL, which serverless hosting requires. Tables are created on first use.
+- Failed logins are throttled per email (5 per 5 minutes) in the database, so the limit holds across instances.
 - Tokens are HS256, signed with `BHAROSA_SECRET` (a random key is generated and stored if unset).
   They last 7 days by default (`BHAROSA_TOKEN_TTL`).
 - A wrong password and an unknown email give the same error.

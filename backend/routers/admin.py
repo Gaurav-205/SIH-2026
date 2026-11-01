@@ -31,9 +31,9 @@ def make_router(exports: Path) -> APIRouter:
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             pass
         with auth.db() as conn:
-            users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-            onboarded = conn.execute("SELECT COUNT(*) FROM users WHERE onboarded = 1").fetchone()[0]
-            acknowledgements = conn.execute("SELECT COUNT(*) FROM alert_acks").fetchone()[0]
+            users = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
+            onboarded = conn.execute("SELECT COUNT(*) AS n FROM users WHERE onboarded = 1").fetchone()["n"]
+            acknowledgements = conn.execute("SELECT COUNT(*) AS n FROM alert_acks").fetchone()["n"]
         return {
             **status,
             "sources": sources,

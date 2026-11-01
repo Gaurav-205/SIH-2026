@@ -9,6 +9,7 @@ Also hosts user accounts (see accounts.py).
 """
 
 import json
+import logging
 import os
 import re
 from contextlib import asynccontextmanager
@@ -31,7 +32,12 @@ CYCLE_FILE = re.compile(r"^cycle_(\d{8}T\d{2})\.json$")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    auth.init_db()  # create the accounts tables on first run
+    # Create the accounts tables early when possible. A database outage must not take the forecast
+    # endpoints down with it; account calls retry the schema on first use (auth.db).
+    try:
+        auth.init_db()
+    except Exception:
+        logging.getLogger("bharosa").exception("accounts database unavailable at startup")
     yield
 
 

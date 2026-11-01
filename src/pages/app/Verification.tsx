@@ -77,6 +77,8 @@ export default function Verification() {
       <LiveState loading={card.isLoading} error={card.error} what="the scorecard">
         {s && (
           <>
+            {/* An empty scorecard (no archive or truth yet) carries only rows and a note */}
+            {s.periods && (
             <div className="mb-6 flex gap-2 rounded-lg border border-line bg-subtle px-4 py-3 text-sm text-muted">
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>
@@ -85,6 +87,7 @@ export default function Verification() {
                 (n below); 95% intervals from a 5-day block bootstrap. Generated {s.generated_at.slice(0, 16).replace("T", " ")} UTC.
               </p>
             </div>
+            )}
 
             {methods.length === 0 ? (
               <Card>

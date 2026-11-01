@@ -20,3 +20,9 @@ def test_successful_publication_replaces_complete_document(tmp_path):
     publish_json(target, {"value": 1})
     publish_json(target, {"value": 2})
     assert json.loads(target.read_text()) == {"value": 2}
+
+
+def test_published_document_is_world_readable(tmp_path):
+    target = tmp_path / "latest.json"
+    publish_json(target, {"value": 1})
+    assert target.stat().st_mode & 0o777 == 0o644

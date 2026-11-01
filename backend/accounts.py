@@ -144,12 +144,11 @@ def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Ro
 def signup(body: SignupRequest):
     try:
         with auth.db() as conn:
-            cur = conn.execute(
-                "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+            row = conn.execute(
+                "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?) RETURNING *",
                 (body.name, body.email, auth.hash_password(body.password), auth.now_iso()),
-            )
-            row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-    except sqlite3.IntegrityError:
+            ).fetchone()
+    except auth.IntegrityError:
         raise HTTPException(status_code=409, detail="An account with this email already exists") from None
     return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
 
@@ -228,7 +227,8 @@ def ack_alert(alert_id: str = Path(min_length=1, max_length=120, pattern=ALERT_I
     acked_at = auth.now_iso()
     with auth.db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO alert_acks (user_id, alert_id, acked_at) VALUES (?, ?, ?)",
+            "INSERT INTO alert_acks (user_id, alert_id, acked_at) VALUES (?, ?, ?)"
+            " ON CONFLICT (user_id, alert_id) DO UPDATE SET acked_at = excluded.acked_at",
             (user["id"], alert_id, acked_at),
         )
     return AlertAck(alert_id=alert_id, acked_at=acked_at)

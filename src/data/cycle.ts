@@ -101,7 +101,8 @@ export interface Scorecard {
   unit: string;
   truth: string;
   points: number;
-  periods: Record<string, { start: string; end: string }>;
+  /** Absent while the scorecard is empty (no archived forecasts or truth yet). */
+  periods?: Record<string, { start: string; end: string }>;
   truth_days: Record<string, number>;
   stage_a_fallback_share: number | null;
   rows: ScoreRow[];

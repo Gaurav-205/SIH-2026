@@ -3,7 +3,8 @@
  * errors are raised as ApiError with a human-readable message (status 0 = server unreachable).
  */
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+// Production builds default to the same origin (the API is served under /api on Vercel); dev uses the local uvicorn.
+export const API_BASE_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:8000" : "")).replace(/\/$/, "");
 
 export class ApiError extends Error {
   /** HTTP status; 0 means the server could not be reached. */

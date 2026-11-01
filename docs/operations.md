@@ -80,4 +80,34 @@ shared cache/rate budget before scaling. Air quality and marine/surface products
 not local station observations. Check provider terms and production access before deployment.
 
 Run the API with a persistent database/storage volume and backups. Static frontend hosting alone
-does not provide the API or durable account storage. This redesign does not deploy those services.
+does not provide the API or durable account storage; see the Vercel section below.
+
+
+## Production deployment (Vercel)
+
+One Vercel project serves both parts: the Vite build as static files, and the FastAPI backend as a
+Python function (`api/index.py`, dependencies in the root `requirements.txt`). `vercel.json` rewrites
+`/api/*` to the function and every other path to the single-page app, and sets security headers
+(CSP, HSTS, frame denial). `.vercelignore` uploads only what the build and function need, plus
+`ml/exports/*.json`, which are bundled into the function as read-only files.
+
+| Setting | Where | Notes |
+| :--- | :--- | :--- |
+| `BHAROSA_SECRET` | Vercel env (Production, Preview), sensitive | Token signing key |
+| `BHAROSA_DATABASE_URL` | Vercel env (Production, Preview), sensitive | Supabase transaction pooler URL (port 6543). Without it, account endpoints return 500 because the function filesystem is read-only; forecasts still work |
+| `BHAROSA_ADMIN_USER_IDS` | Vercel env | Optional admin allowlist |
+| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | GitHub repository secrets | Used by `.github/workflows/deploy.yml` |
+
+**Fresh data.** The function cannot run the pipeline, so `.github/workflows/deploy.yml` runs
+`python -m ml.daily.run_cycle --no-truth` (public Open-Meteo, no key) and
+`python -m ml.evaluate.report` every day at 11:00 IST, after CI passes on `main`, or by hand, then
+deploys with the new exports. If the cycle fails, nothing is deployed and the previous publication
+keeps serving; the health endpoint marks it stale after 24 hours. The project is deliberately not
+connected to Git: a Git-triggered build would have no exports.
+
+**Limitation.** The scheduled job has no archive or IMD truth, so the live blend uses equal weights
+and the scorecard stays empty. Skill weighting needs the archive backfill and IMD mirror
+(about 1 GB, see Budgets) on persistent storage, for example a self-hosted runner that runs the
+full daily routine above and then deploys.
+
+**Manual deploy:** `npx vercel deploy --prod` from a checkout that has `ml/exports/` populated.

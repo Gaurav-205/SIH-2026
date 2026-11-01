@@ -64,4 +64,4 @@ npm run typecheck
 npm run build      # dist/ (vercel.json adds the SPA rewrite)
 ```
 
-`VITE_API_URL` points the app at the backend (default `http://localhost:8000`).
+`VITE_API_URL` points the app at the backend. Unset, dev builds use `http://localhost:8000` and production builds use the same origin (the API is served under `/api` on Vercel).
