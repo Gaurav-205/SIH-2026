@@ -13,6 +13,7 @@ import logging
 import numpy as np
 import pandas as pd
 import requests
+from retry_requests import retry
 
 from ml.common import config, path, points, sources
 from ml.ingest.budget import Budget, call_weight
@@ -53,8 +54,15 @@ def first_valid_date(init: dt.datetime) -> dt.date:
     return d + dt.timedelta(days=int(config()["days"].get("rain_label_offset_days", 0)))
 
 
+def _session() -> requests.Session:
+    return retry(requests.Session(), retries=3, backoff_factor=2)
+
+
 def fetch_live(issue_init: dt.datetime) -> pd.DataFrame:
-    """Daily live forecasts for leads 1..5: point_id, date, source, lead, var, value."""
+    """Daily live forecasts for leads 1..5: point_id, date, source, lead, var, value.
+
+    A source that still fails after retries is left out, so one provider outage does not stop the
+    publication; the cycle fails only if more than half of the live sources are missing."""
     cfg = config()
     pts = points()
     leads = cfg["leads"]
@@ -64,33 +72,45 @@ def fetch_live(issue_init: dt.datetime) -> pd.DataFrame:
     budget = Budget(path("cache_dir") / "openmeteo_budget.json", cfg["openmeteo"]["limits"])
     days = (max(valid.values()) - issue_init.date()).days + 2
     frames = []
-    for src in (s for s in sources() if s.live):
+    session = _session()
+    live_sources = [s for s in sources() if s.live]
+    failed = []
+    for src in live_sources:
         budget.acquire(call_weight(len(pts), len(names), days + 1))
-        r = requests.get(FORECAST_URL, timeout=60, params={
-            "latitude": ",".join(str(p.lat) for p in pts),
-            "longitude": ",".join(str(p.lon) for p in pts),
-            "hourly": ",".join(names.values()),
-            "models": src.id,
-            "past_days": 1,
-            "forecast_days": days,
-            "timezone": "GMT",
-            "wind_speed_unit": "ms",
-            "precipitation_unit": "mm",
-        })
-        r.raise_for_status()
-        body = r.json()
-        body = body if isinstance(body, list) else [body]
-        for p, loc in zip(pts, body, strict=True):
-            times = pd.to_datetime(loc["hourly"]["time"]).tz_localize("UTC")
-            for var, om in names.items():
-                series = pd.Series(np.array(loc["hourly"][om], dtype="float64"), index=times)
-                daily = aggregate(series, var, cfg["days"])
-                for lead, date in valid.items():
-                    if lead > src.max_lead:
-                        continue
-                    v = daily.get(pd.Timestamp(date), np.nan)
-                    frames.append((p.id, pd.Timestamp(date), src.id, lead, var, float(v)))
+        rows = []
+        try:
+            r = session.get(FORECAST_URL, timeout=60, params={
+                "latitude": ",".join(str(p.lat) for p in pts),
+                "longitude": ",".join(str(p.lon) for p in pts),
+                "hourly": ",".join(names.values()),
+                "models": src.id,
+                "past_days": 1,
+                "forecast_days": days,
+                "timezone": "GMT",
+                "wind_speed_unit": "ms",
+                "precipitation_unit": "mm",
+            })
+            r.raise_for_status()
+            body = r.json()
+            body = body if isinstance(body, list) else [body]
+            for p, loc in zip(pts, body, strict=True):
+                times = pd.to_datetime(loc["hourly"]["time"]).tz_localize("UTC")
+                for var, om in names.items():
+                    series = pd.Series(np.array(loc["hourly"][om], dtype="float64"), index=times)
+                    daily = aggregate(series, var, cfg["days"])
+                    for lead, date in valid.items():
+                        if lead > src.max_lead:
+                            continue
+                        v = daily.get(pd.Timestamp(date), np.nan)
+                        rows.append((p.id, pd.Timestamp(date), src.id, lead, var, float(v)))
+        except (requests.RequestException, ValueError, KeyError) as e:
+            log.warning("live %s: left out of this cycle: %s", src.id, e)
+            failed.append(src.id)
+            continue
+        frames.extend(rows)
         log.info("live %s: fetched", src.id)
+    if len(failed) * 2 > len(live_sources):
+        raise RuntimeError(f"live forecasts unavailable from {len(failed)} of {len(live_sources)} sources: {failed}")
     df = pd.DataFrame(frames, columns=["point_id", "date", "source", "lead", "var", "value"])
     df, removed = mask_implausible(df)
     if len(removed):

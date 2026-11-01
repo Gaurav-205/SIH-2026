@@ -37,13 +37,13 @@ jobs:
       - run: pip install -r ml/requirements.lock
       # Pipeline state carried between runs: live/archived forecasts, IMD truth, raw IMD grids, the
       # HTTP cache, the Open-Meteo budget ledger (about 50 MB once warm) and published cycles (history page)
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ml/data
             ml/cache
             ml/exports
-          key: pipeline-${{ github.run_id }}
+          key: pipeline-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: pipeline-
       # Skill weights need verified errors: IMD real-time truth, ERA5 wind and archived forecasts for the last
       # ~100 days (blend window 90 days). Both are incremental; the first run costs ~4,600 of the
@@ -71,3 +71,12 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@latest deploy --prod --yes
+      # Saved even when a step above failed, so a failed run does not repeat its downloads
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            ml/data
+            ml/cache
+            ml/exports
+          key: pipeline-${{ github.run_id }}-${{ github.run_attempt }}

@@ -23,6 +23,8 @@
   network cannot lock someone out; login email length is limited; a non-ASCII token gets 401, not 500;
   a slow download reports the normal offline message; Malappuram gets marine context. The deploy job
   keeps about 30 published cycles and installs the ML lockfile; backend dependencies are pinned.
+- **Deploy job resilience:** live forecast requests retry, a source that still fails is left out, and the
+  cycle fails only if more than half are missing. Pipeline state is cached even when a run fails.
 - Sign-ups limited to 10 per hour per client IP. `POSTGRES_URL` from Vercel integrations accepted.
 - Row level security is enabled on every account table on PostgreSQL, so Supabase's public API cannot
   read them through its anon key; the backend owns the tables and is unaffected.
