@@ -33,12 +33,28 @@ jobs:
           cache: pip
           cache-dependency-path: ml/requirements.txt
       - run: pip install -r ml/requirements.txt
-      # Stored live forecasts let a re-run for the same model run skip the API calls
+      # Pipeline state carried between runs: live/archived forecasts, IMD truth, raw IMD grids, the
+      # HTTP cache and the Open-Meteo budget ledger (about 50 MB once warm)
       - uses: actions/cache@v4
         with:
-          path: ml/data/live
-          key: live-forecasts-${{ github.run_id }}
-          restore-keys: live-forecasts-
+          path: |
+            ml/data
+            ml/cache
+          key: pipeline-${{ github.run_id }}
+          restore-keys: pipeline-
+      # Skill weights need verified errors: IMD real-time truth, ERA5 wind and archived forecasts for the last
+      # ~100 days (blend window 90 days). Both are incremental; the first run costs ~4,600 of the
+      # 8,500 daily Open-Meteo backfill calls, later runs only fetch new days. If either source is
+      # down, the cycle still publishes with whatever history is stored (equal weights at worst).
+      - name: IMD real-time truth
+        continue-on-error: true
+        run: python -m ml.ingest.imd_realtime --start "$(date -u -d '120 days ago' +%F)"
+      - name: Recent forecast archive
+        continue-on-error: true
+        run: python -m ml.ingest.openmeteo --run --since today-100
+      - name: ERA5 wind truth (Open-Meteo archive, ~6 days behind)
+        continue-on-error: true
+        run: python -m ml.ingest.era5
       # Live runs from public Open-Meteo (no key). If this fails, nothing is deployed and the
       # previous production deployment keeps serving its last publication.
       - run: python -m ml.daily.run_cycle --no-truth

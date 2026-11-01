@@ -23,7 +23,9 @@ def _email() -> str:
 
 
 def _signup(client, email=None, password="monsoon-2026", name="Asha Rao"):
-    return client.post("/api/v1/auth/signup", json={"name": name, "email": email or _email(), "password": password})
+    # A distinct client address per call keeps the per-IP sign-up limit out of unrelated tests
+    headers = {"x-forwarded-for": f"10.0.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250}"}
+    return client.post("/api/v1/auth/signup", json={"name": name, "email": email or _email(), "password": password}, headers=headers)
 
 
 def _bearer(token: str) -> dict:
@@ -134,3 +136,19 @@ def test_delete_account(client):
     assert client.post("/api/v1/users/me/delete", headers=_bearer(token), json={"password": "monsoon-2026"}).status_code == 204
     assert client.get("/api/v1/auth/me", headers=_bearer(token)).status_code == 401
     assert client.post("/api/v1/auth/login", json={"email": email, "password": "monsoon-2026"}).status_code == 401
+
+
+def test_integration_database_url_is_libpq_compatible():
+    url = "postgres://u:p@aws-0.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x"
+    assert auth._libpq_url(url) == "postgres://u:p@aws-0.pooler.supabase.com:6543/postgres?sslmode=require"
+    assert auth._libpq_url("") == ""
+
+
+def test_signups_are_limited_per_network(client):
+    def attempt(forwarded_for):
+        body = {"name": "Probe", "email": _email(), "password": "monsoon-2026"}
+        return client.post("/api/v1/auth/signup", json=body, headers={"x-forwarded-for": forwarded_for}).status_code
+
+    codes = [attempt("203.0.113.7, 10.0.0.1") for _ in range(11)]
+    assert codes[:10] == [201] * 10 and codes[10] == 429
+    assert attempt("198.51.100.9") == 201

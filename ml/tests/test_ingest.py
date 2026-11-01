@@ -175,6 +175,16 @@ def test_plan_respects_first_dates_leads_and_limits():
     assert {lead for _, lead, _ in by_source["gfs_global"][0].variables} == {1, 2, 3, 4, 5}
 
 
+def test_plan_since_keeps_only_whole_recent_chunks():
+    end, since = dt.date(2026, 9, 1), dt.date(2026, 6, 1)
+    full = {(t.source.id, t.index): t for t in plan_tasks(end)}
+    recent = plan_tasks(end, since=since)
+    assert recent and all(t.end >= since for t in recent)
+    # identical to the full plan's tasks for those chunks: never trimmed to `since`
+    assert all((t.start, t.end) == (full[(t.source.id, t.index)].start, full[(t.source.id, t.index)].end) for t in recent)
+    assert {t.index for t in recent} == {t.index for t in full.values() if t.end >= since}
+
+
 def test_resolve_date():
     today = dt.date(2026, 9, 25)
     assert resolve_date("today-1", today) == dt.date(2026, 9, 24)

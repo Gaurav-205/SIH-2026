@@ -15,6 +15,7 @@ import sqlite3
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 _default_db = (
     "bharosa.db"
@@ -29,7 +30,17 @@ DB_PATH = os.getenv(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), _default_db),
     ),
 )
-DATABASE_URL = os.getenv("BHAROSA_DATABASE_URL") or os.getenv("DATABASE_URL") or ""
+
+
+def _libpq_url(url: str) -> str:
+    """Drops query parameters libpq rejects; the Supabase/Vercel integration adds `supa=base-pooler.x`."""
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != "supa"]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+# POSTGRES_URL is what the Supabase and Neon integrations on Vercel inject (pooled connection)
+DATABASE_URL = _libpq_url(os.getenv("BHAROSA_DATABASE_URL") or os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or "")
 USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 TOKEN_TTL_SECONDS = int(os.getenv("BHAROSA_TOKEN_TTL", os.getenv("ATMOSFUSION_TOKEN_TTL", str(7 * 24 * 3600))))  # 7 days
 PBKDF2_ITERATIONS = 210_000
@@ -223,13 +234,18 @@ def decode_token(token: str) -> int | None:
 
 _MAX_FAILURES = 5
 _WINDOW_SECONDS = 300
+_RETENTION_SECONDS = 24 * 3600  # longest window any key uses
 
 
-def too_many_failures(key: str) -> bool:
+def too_many_failures(key: str, limit: int = _MAX_FAILURES, window: int = _WINDOW_SECONDS) -> bool:
+    """Counts recorded events for `key` within `window` seconds (login failures, or "signup:<ip>")."""
+    now = time.time()
     with db() as conn:
-        conn.execute("DELETE FROM login_failures WHERE failed_at < ?", (time.time() - _WINDOW_SECONDS,))
-        n = conn.execute("SELECT COUNT(*) AS n FROM login_failures WHERE email = ?", (key,)).fetchone()["n"]
-    return n >= _MAX_FAILURES
+        conn.execute("DELETE FROM login_failures WHERE failed_at < ?", (now - _RETENTION_SECONDS,))
+        n = conn.execute(
+            "SELECT COUNT(*) AS n FROM login_failures WHERE email = ? AND failed_at >= ?", (key, now - window)
+        ).fetchone()["n"]
+    return n >= limit
 
 
 def record_failure(key: str) -> None:

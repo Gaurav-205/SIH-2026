@@ -98,17 +98,23 @@ Python function (`api/index.py`, dependencies in the root `requirements.txt`). `
 | `BHAROSA_ADMIN_USER_IDS` | Vercel env | Optional admin allowlist |
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | GitHub repository secrets | Used by `.github/workflows/deploy.yml` |
 
-**Fresh data.** The function cannot run the pipeline, so `.github/workflows/deploy.yml` runs
-`python -m ml.daily.run_cycle --no-truth` (public Open-Meteo, no key) and
-`python -m ml.evaluate.report` every day at 11:00 IST, after CI passes on `main`, or by hand, then
-deploys with the new exports. If the cycle fails, nothing is deployed and the previous publication
-keeps serving; the health endpoint marks it stale after 24 hours. `vercel.json` disables Git-triggered
-deployments of `main`, because a Git build has no exports and would replace live data with 503s.
-Pull-request previews still build (with empty-data states) for UI review.
+**Fresh data.** The function cannot run the pipeline, so `.github/workflows/deploy.yml` does it every
+day at 11:00 IST, after CI passes on `main`, or by hand:
 
-**Limitation.** The scheduled job has no archive or IMD truth, so the live blend uses equal weights
-and the scorecard stays empty. Skill weighting needs the archive backfill and IMD mirror
-(about 1 GB, see Budgets) on persistent storage, for example a self-hosted runner that runs the
-full daily routine above and then deploys.
+1. `python -m ml.ingest.imd_realtime --start <120 days ago>`: IMD real-time rain/Tmax truth.
+2. `python -m ml.ingest.openmeteo --run --since today-100`: archived forecasts for the chunks covering
+   the blend's 90-day window (first run ~4,600 weighted calls; then only new days).
+3. `python -m ml.ingest.era5`: ERA5 wind truth from the Open-Meteo archive (first run ~2,200 calls).
+4. `python -m ml.daily.run_cycle --no-truth` (truth was step 1) and `python -m ml.evaluate.report`.
+5. `vercel deploy --prod` with the new exports.
+
+`ml/data` and `ml/cache` persist between runs through `actions/cache`. Steps 1–3 may fail without
+blocking the deploy (the blend falls back to equal weights where history is missing); if step 4
+fails, nothing is deployed and the previous publication keeps serving, marked stale after 24 hours.
+`vercel.json` disables Git-triggered deployments of `main`, because a Git build has no exports and
+would replace live data with 503s. Pull-request previews still build (with empty-data states).
+
+**Limitation.** The 2024–2025 research archive, IMD final grids and terrain data (about 1 GB) are only
+needed for training and validation, not for the live blend.
 
 **Manual deploy:** `npx vercel deploy --prod` from a checkout that has `ml/exports/` populated.

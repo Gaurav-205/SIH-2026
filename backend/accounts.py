@@ -6,7 +6,7 @@ import re
 import sqlite3
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 
 import auth
@@ -140,8 +140,17 @@ def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Ro
 
 # ── Auth ────────────────────────────────────────────────────
 
+SIGNUPS_PER_HOUR = 10
+
+
 @router.post("/auth/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupRequest):
+def signup(body: SignupRequest, request: Request):
+    # Vercel sets x-forwarded-for itself (client values are overwritten), so its first entry is the caller
+    ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    key = f"signup:{ip}"
+    if auth.too_many_failures(key, limit=SIGNUPS_PER_HOUR, window=3600):
+        raise HTTPException(status_code=429, detail="Too many sign-ups from this network. Try again later.")
+    auth.record_failure(key)
     try:
         with auth.db() as conn:
             row = conn.execute(
