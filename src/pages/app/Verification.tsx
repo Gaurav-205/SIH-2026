@@ -30,7 +30,9 @@ export default function Verification() {
   const card = useScorecard();
   const cycle = useCycle();
   const s = card.data;
-  const [period, setPeriod] = useState<Period>("test_monsoon_2025");
+  const [chosen, setPeriod] = useState<Period | null>(null);
+  // Open on the frozen test season once it is scored; until then, on the days that are verified
+  const period: Period = chosen ?? (s?.rows.some((r) => r.period === "test_monsoon_2025") || !s?.rows.length ? "test_monsoon_2025" : "all_verified");
   const [lead, setLead] = useState(1);
 
   const rows = useMemo(() => (s?.rows ?? []).filter((r) => r.period === period), [s, period]);
