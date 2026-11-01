@@ -80,4 +80,42 @@ shared cache/rate budget before scaling. Air quality and marine/surface products
 not local station observations. Check provider terms and production access before deployment.
 
 Run the API with a persistent database/storage volume and backups. Static frontend hosting alone
-does not provide the API or durable account storage. This redesign does not deploy those services.
+does not provide the API or durable account storage; see the Vercel section below.
+
+
+## Production deployment (Vercel)
+
+One Vercel project serves both parts: the Vite build as static files, and the FastAPI backend as a
+Python function (`api/index.py`, dependencies in the root `requirements.txt`). `vercel.json` rewrites
+`/api/*` to the function and every other path to the single-page app, and sets security headers
+(CSP, HSTS, frame denial). `.vercelignore` uploads only what the build and function need, plus
+`ml/exports/*.json`, which are bundled into the function as read-only files.
+
+| Setting | Where | Notes |
+| :--- | :--- | :--- |
+| `BHAROSA_SECRET` | Vercel env (Production, Preview), sensitive | Token signing key |
+| `BHAROSA_DATABASE_URL` | Vercel env (Production, Preview), sensitive | Supabase transaction pooler URL (port 6543). Without it, account endpoints return 503 because the function filesystem is read-only; forecasts still work |
+| `POSTGRES_URL` | Set by the Vercel Supabase integration | Used when `BHAROSA_DATABASE_URL` is unset. The schema enables row level security with no policies, so Supabase's public API cannot read account tables |
+| `BHAROSA_ADMIN_USER_IDS` | Vercel env | Optional admin allowlist |
+| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | GitHub repository secrets | Used by `.github/workflows/deploy.yml` |
+
+**Fresh data.** The function cannot run the pipeline, so `.github/workflows/deploy.yml` does it every
+day at 11:00 IST, after CI passes on `main`, or by hand:
+
+1. `python -m ml.ingest.imd_realtime --start <120 days ago>`: IMD real-time rain/Tmax truth.
+2. `python -m ml.ingest.openmeteo --run --since today-100`: archived forecasts for the chunks covering
+   the blend's 90-day window (first run ~4,600 weighted calls; then only new days).
+3. `python -m ml.ingest.era5`: ERA5 wind truth from the Open-Meteo archive (first run ~2,200 calls).
+4. `python -m ml.daily.run_cycle --no-truth` (truth was step 1) and `python -m ml.evaluate.report`.
+5. `vercel deploy --prod` with the new exports.
+
+`ml/data` and `ml/cache` persist between runs through `actions/cache`. Steps 1–3 may fail without
+blocking the deploy (the blend falls back to equal weights where history is missing); if step 4
+fails, nothing is deployed and the previous publication keeps serving, marked stale after 24 hours.
+`vercel.json` disables Git-triggered deployments of `main`, because a Git build has no exports and
+would replace live data with 503s. Pull-request previews still build (with empty-data states).
+
+**Limitation.** The 2024–2025 research archive, IMD final grids and terrain data (about 1 GB) are only
+needed for training and validation, not for the live blend.
+
+**Manual deploy:** `npx vercel deploy --prod` from a checkout that has `ml/exports/` populated.

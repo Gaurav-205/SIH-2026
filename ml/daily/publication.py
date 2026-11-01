@@ -15,6 +15,7 @@ def publish_json(target: Path, document: dict) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
+        os.chmod(temp, 0o644)  # mkstemp creates 0600; the API may run as another user
         os.replace(temp, target)
     finally:
         if os.path.exists(temp):

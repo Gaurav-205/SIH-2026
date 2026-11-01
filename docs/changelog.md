@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-01: production deployment on Vercel
+- **Deployment:** the site and API run as one Vercel project (`api/index.py`, `vercel.json`,
+  `.vercelignore`). A scheduled GitHub Actions workflow publishes a live cycle and deploys daily.
+- **Accounts on PostgreSQL:** `BHAROSA_DATABASE_URL` switches the account store from SQLite to
+  PostgreSQL (psycopg). The schema is created on first use; CI runs the backend suite on both.
+- **Security:** login throttling moved from process memory to the database, so it holds across
+  serverless instances. CSP, HSTS, frame-denial and related headers on every response.
+- **Fixes:**
+  - The Verification page crashed whenever the scorecard was empty (`s.periods` undefined), which is
+    the normal state of a new deployment. The browser suite now fails on any error-boundary screen.
+  - Pipeline exports were written with mode 0600, unreadable by an API running as another user.
+  - Production builds pointed at `http://localhost:8000` unless `VITE_API_URL` was set; they now
+    use the same origin.
+  - A database outage at startup no longer takes the forecast endpoints down.
+- `python -m ml.evaluate.report` republishes the website copy of the committed validation report.
+- **Skill-weighted live blend in production:** the deploy job fetches IMD real-time truth, ERA5 wind
+  and the recent forecast archive (`ml.ingest.openmeteo --since today-100`). First production
+  scorecard (24 Jul–31 Oct 2026, day 1 rain): Bharosa RMSE 10.85 mm vs 11.35 mm equal-weight mean.
+- Sign-ups limited to 10 per hour per client IP. `POSTGRES_URL` from Vercel integrations accepted.
+- Row level security is enabled on every account table on PostgreSQL, so Supabase's public API cannot
+  read them through its anon key; the backend owns the tables and is unaffected.
+- An unreachable accounts database now returns a clear 503 instead of a bare 500; login and sign-up
+  offer the demo in that case.
+- District map labels are placed by pixel collision at the current zoom; Verification opens on a
+  period that has scores.
+
 ## 2026-09-26: data expansion, Stage B, documentation
 - **Validation results (2024, out-of-fold):**
   - Stage B RMSE 13.28 vs Stage A 13.45 at day 1; not yet significant.

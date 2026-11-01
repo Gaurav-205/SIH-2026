@@ -67,7 +67,9 @@ class Task:
         return path("data_dir", "forecasts", f"source={self.source.id}") / f"chunk{self.index:03d}{suffix}.parquet"
 
 
-def plan_tasks(end: dt.date | None = None) -> list[Task]:
+def plan_tasks(end: dt.date | None = None, since: dt.date | None = None) -> list[Task]:
+    """Every chunk of the backfill. With `since`, only chunks ending on or after it; they are still
+    fetched whole, so a later full backfill never mistakes a trimmed chunk for a finished one."""
     cfg = config()
     start = resolve_date(cfg["periods"]["backfill"]["start"])
     end = end or resolve_date(cfg["periods"]["backfill"]["end"])
@@ -79,6 +81,9 @@ def plan_tasks(end: dt.date | None = None) -> list[Task]:
         c_end = c_start + dt.timedelta(days=span - 1)
         if c_start > end:
             break
+        if since is not None and c_end < since:
+            k += 1
+            continue
         for src in sources():
             if src.provider != "openmeteo":
                 continue
@@ -211,8 +216,8 @@ def log_removed(removed: pd.DataFrame, what: str) -> None:
     log.warning("%s: masked implausible values -> %s\n%s", what, out.name, by.to_string())
 
 
-def run(max_requests: int | None = None) -> None:
-    tasks = pending(plan_tasks())
+def run(max_requests: int | None = None, since: dt.date | None = None) -> None:
+    tasks = pending(plan_tasks(since=since))
     om = config()["openmeteo"]
     limits = {**om["limits"], "day": om.get("backfill_day_limit", om["limits"]["day"])}
     budget = Budget(path("cache_dir") / "openmeteo_budget.json", limits)
@@ -241,7 +246,7 @@ def run(max_requests: int | None = None) -> None:
         log.info("%s chunk %d %s..%s: %d rows, %.0f%% non-missing, weight %.0f (day total %.0f)",
                  t.source.id, t.index, t.start, t.end, len(df), 100 * nonnull, t.weight, budget.used("day"))
         done += 1
-    log.info("finished %d requests; %d chunks still pending", done, len(pending(plan_tasks())))
+    log.info("finished %d requests; %d chunks still pending", done, len(pending(plan_tasks(since=since))))
 
 
 def print_plan() -> None:
@@ -270,9 +275,10 @@ def main() -> None:
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--max-requests", type=int)
+    ap.add_argument("--since", type=resolve_date, help="only chunks reaching this date, e.g. today-100 (what the live ledger needs)")
     args = ap.parse_args()
     if args.run:
-        run(args.max_requests)
+        run(args.max_requests, args.since)
     else:
         print_plan()
 

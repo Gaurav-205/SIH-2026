@@ -9,14 +9,15 @@ Also hosts user accounts (see accounts.py).
 """
 
 import json
+import logging
 import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 import accounts
 import auth
@@ -31,7 +32,12 @@ CYCLE_FILE = re.compile(r"^cycle_(\d{8}T\d{2})\.json$")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    auth.init_db()  # create the accounts tables on first run
+    # Create the accounts tables early when possible. A database outage must not take the forecast
+    # endpoints down with it; account calls retry the schema on first use (auth.db).
+    try:
+        auth.init_db()
+    except Exception:
+        logging.getLogger("bharosa").exception("accounts database unavailable at startup")
     yield
 
 
@@ -63,6 +69,18 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+ACCOUNTS_DOWN = "Accounts are temporarily unavailable. Forecasts still work without an account."
+
+
+def _accounts_unavailable(_request: Request, exc: Exception) -> JSONResponse:
+    logging.getLogger("bharosa").exception("accounts database unavailable", exc_info=exc)
+    return JSONResponse(status_code=503, content={"detail": ACCOUNTS_DOWN})
+
+
+for _exc_type in auth.DatabaseUnavailable:
+    app.add_exception_handler(_exc_type, _accounts_unavailable)
 
 
 def _json_file(path: Path, what: str, command: str = "python -m ml.daily.run_cycle") -> Response:

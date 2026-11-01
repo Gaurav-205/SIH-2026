@@ -1,16 +1,16 @@
 /**
  * Leaflet map of the live district points, themed light/dark.
- * Markers are coloured by the caller; districts under alert get a ring; labels avoid collisions.
+ * Markers are coloured by the caller; districts under alert get a ring; labels avoid collisions at the current zoom.
  */
-import { useEffect, useRef } from "react";
-import { MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { useEffect, useRef, useState } from "react";
+import { MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ALERT_COLORS, type AlertLevel } from "@/lib/imd";
 import { BASEMAPS, BASEMAP_ATTRIBUTION } from "@/lib/basemap";
 import { useIsDark } from "@/lib/theme";
 
-type LabelSide = "below" | "left" | "right";
+type LabelSide = "below" | "left" | "right" | "none";
 
 export interface MapPoint {
   id: string;
@@ -19,23 +19,52 @@ export interface MapPoint {
   lon: number;
   alert?: AlertLevel | null;
 }
-const LABEL_CROWDING_DEG = 0.2;
 
-/** Points closer than LABEL_CROWDING_DEG put their labels on opposite sides; only the selected point shows its name (the rest show it on hover). */
-function labelSides(points: MapPoint[]): Record<string, LabelSide> {
+const LABEL_H = 19;
+const SIDES: LabelSide[] = ["below", "right", "left"];
+type Rect = { x0: number; x1: number; y0: number; y1: number };
+
+/** Label box in screen pixels relative to its marker, matching the CSS in icon(). */
+function labelRect(side: LabelSide, box: number, w: number): Rect {
+  if (side === "below") return { x0: -w / 2, x1: w / 2, y0: box / 2 + 2, y1: box / 2 + 2 + LABEL_H };
+  if (side === "right") return { x0: box / 2 + 4, x1: box / 2 + 4 + w, y0: -LABEL_H / 2, y1: LABEL_H / 2 };
+  return { x0: -(box / 2 + 4 + w), x1: -(box / 2 + 4), y0: -LABEL_H / 2, y1: LABEL_H / 2 };
+}
+
+/**
+ * Greedy, zoom-aware label placement in pixels: the selected and alerted districts are placed first;
+ * each label tries below, right, then left of its marker, and is hidden ("none") if all collide with
+ * a placed label or another marker. Hidden labels show their value in the hover tooltip instead.
+ */
+function labelSides(points: MapPoint[], zoom: number, selectedId: string | null | undefined, valueOf: (s: MapPoint) => string) {
+  const px = new Map(points.map((p) => [p.id, L.CRS.EPSG3857.latLngToPoint(L.latLng(p.lat, p.lon), zoom)]));
+  const placed: Rect[] = [];
   const sides: Record<string, LabelSide> = {};
-  for (const s of points) {
-    let nearest: MapPoint | null = null;
-    let best = LABEL_CROWDING_DEG;
-    for (const o of points) {
-      if (o.id === s.id) continue;
-      const d = Math.hypot(o.lat - s.lat, o.lon - s.lon);
-      if (d < best) {
-        best = d;
-        nearest = o;
+  const order = [...points].sort((a, b) => Number(b.id === selectedId) - Number(a.id === selectedId) || Number(!!b.alert) - Number(!!a.alert));
+  for (const p of order) {
+    const selected = p.id === selectedId;
+    const box = (selected ? 18 : 14) + 12;
+    const w = 16 + valueOf(p).length * 6.7 + (selected ? p.name.length * 6.2 + 6 : 0);
+    const at = px.get(p.id)!;
+    sides[p.id] = "none";
+    for (const side of SIDES) {
+      const r = labelRect(side, box, w);
+      const pad = 2; // clearance so neighbouring labels never touch
+      const abs = { x0: at.x + r.x0 - pad, x1: at.x + r.x1 + pad, y0: at.y + r.y0 - pad, y1: at.y + r.y1 + pad };
+      const hit = (o: Rect) => abs.x0 < o.x1 && abs.x1 > o.x0 && abs.y0 < o.y1 && abs.y1 > o.y0;
+      const hitsDot = points.some((o) => {
+        if (o.id === p.id) return false;
+        const d = px.get(o.id)!;
+        return hit({ x0: d.x - 9, x1: d.x + 9, y0: d.y - 9, y1: d.y + 9 });
+      });
+      if (!hitsDot && !placed.some(hit)) {
+        placed.push(abs);
+        sides[p.id] = side;
+        break;
       }
     }
-    sides[s.id] = !nearest ? "below" : s.lon < nearest.lon ? "left" : "right";
+    // The selected district always shows its label, even where it must overlap
+    if (selected && sides[p.id] === "none") sides[p.id] = "below";
   }
   return sides;
 }
@@ -52,6 +81,7 @@ function icon(color: string, selected: boolean, alertColor: string | null, name:
        <span class="animate-pulse-ring" style="position:absolute;top:${off}px;left:${off}px;width:${ring}px;height:${ring}px;border-radius:50%;border:2px solid ${alertColor};"></span>`
     : "";
   const pos = {
+    none: "display:none;",
     below: `top:${box / 2 + 2}px;left:0;transform:translateX(-50%);`,
     right: `top:0;left:${box / 2 + 4}px;transform:translateY(-50%);`,
     left: `top:0;right:${box / 2 + 4}px;transform:translateY(-50%);`,
@@ -87,6 +117,12 @@ function FitOnce({ points }: { points: MapPoint[] }) {
   return null;
 }
 
+function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+  useEffect(() => onZoom(map.getZoom()), [map, onZoom]);
+  return null;
+}
+
 function InvalidateOnResize() {
   const map = useMap();
   useEffect(() => {
@@ -118,7 +154,8 @@ export default function DistrictMap({
 }) {
   const dark = useIsDark();
   const tiles = dark ? BASEMAPS.dark : BASEMAPS.light;
-  const sides = labelSides(points);
+  const [zoom, setZoom] = useState(6);
+  const sides = labelSides(points, zoom, selectedId, valueOf);
   return (
     <div className={`overflow-hidden rounded-xl border border-line ${className}`}>
       <MapContainer
@@ -135,6 +172,7 @@ export default function DistrictMap({
         <TileLayer key={`labels-${dark}`} url={tiles.labels} maxNativeZoom={16} maxZoom={18} />
         <FitOnce points={points} />
         <InvalidateOnResize />
+        <ZoomWatcher onZoom={setZoom} />
         {points.map((s) => {
           const color = colorOf(s);
           return (
@@ -150,6 +188,7 @@ export default function DistrictMap({
               <Tooltip direction="top" offset={[0, -14]} opacity={1}>
                 <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-fg shadow-pop">
                   <p className="font-semibold">{s.name}</p>
+                  {sides[s.id] === "none" && <p className="mt-0.5 font-mono">{valueOf(s)}</p>}
                   {tooltip && <p className="mt-0.5 text-muted">{tooltip(s)}</p>}
                 </div>
               </Tooltip>

@@ -1,6 +1,8 @@
 # Bharosa — Hybrid AI–NWP Multi-Model Forecast Blending
 
 > **SIH26081 · NCMRWF, Ministry of Earth Sciences**
+> **Live:** https://bharosa-hazel.vercel.app
+>
 > Blends physics, AI and ensemble forecasts for 29 districts in Konkan & Goa and Kerala. Each model is weighted by how well it has recently verified against IMD observations at that place and lead time.
 
 The running app reads pipeline exports and provider APIs; it does not substitute demonstration forecasts when data is missing. Isolated automated tests use explicitly synthetic fixtures. Published scientific claims require the validation protocol and source data described in **[docs/](docs/README.md)**.
@@ -72,7 +74,7 @@ live until then ([decision 0008](docs/decisions/0008-stage-a-live-until-test.md)
 ## User flow
 
 ```
-Landing (/) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
+Landing (/landing) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
    │                      role · home region ·        ├─ Overview      alerts, wettest districts, run status
    ├─► Log in ──────────  alert threshold · lead ────►├─ Districts     map + table, per-district blend and weights
    └─► Explore the demo (no account) ────────────────►├─ Forecast      region view by lead day
@@ -115,6 +117,23 @@ Then open http://localhost:5173.
 npm run lint && npm run typecheck && npm run build
 ml/.venv/Scripts/ruff.exe check ml backend && ml/.venv/Scripts/python.exe -m pytest ml/tests -q
 cd backend && .venv/Scripts/python.exe -m pytest -q
+```
+
+On macOS/Linux use `.venv/bin/python` in place of `.venv/Scripts/python.exe`. Without the archive
+backfill and IMD mirror, `python -m ml.daily.run_cycle --no-truth` still publishes a real live cycle
+(equal weights, empty scorecard) in about a minute.
+
+## Deployment (Vercel)
+
+The site and the API deploy together as one Vercel project: Vite builds the static site, and
+`api/index.py` serves the FastAPI backend as a Python function under `/api`. Accounts need PostgreSQL
+(`BHAROSA_DATABASE_URL`, e.g. Supabase); forecast data is bundled from `ml/exports/` at deploy time.
+`.github/workflows/deploy.yml` refreshes the live cycle and redeploys daily. Setup, environment
+variables and limitations: [docs/operations.md](docs/operations.md#production-deployment-vercel).
+
+```bash
+python -m ml.daily.run_cycle --no-truth && python -m ml.evaluate.report   # populate ml/exports
+npx vercel deploy --prod
 ```
 
 ## Documentation

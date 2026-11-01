@@ -154,3 +154,14 @@ def export_for_web(result: dict) -> dict:
         "importance": result["importance"][:12],
     }
     return web
+
+
+if __name__ == "__main__":
+    # Republish the website copy of the committed validation report without re-running validation:
+    #   python -m ml.evaluate.report
+    import json
+
+    from ml.daily.publication import publish_json
+
+    result = json.loads(path("reports_dir").joinpath("validation.json").read_text(encoding="utf-8"))
+    publish_json(path("data_dir").parent / "exports" / "validation.json", export_for_web(result))

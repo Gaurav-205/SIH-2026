@@ -31,7 +31,7 @@ export default function Login() {
       navigate(user.onboarded ? safeNext(params.get("next")) : "/welcome", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
-      setOffline(err instanceof ApiError && err.status === 0);
+      setOffline(err instanceof ApiError && (err.status === 0 || err.status === 503));
     } finally {
       setBusy(false);
     }

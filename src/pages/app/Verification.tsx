@@ -30,7 +30,9 @@ export default function Verification() {
   const card = useScorecard();
   const cycle = useCycle();
   const s = card.data;
-  const [period, setPeriod] = useState<Period>("test_monsoon_2025");
+  const [chosen, setPeriod] = useState<Period | null>(null);
+  // Open on the frozen test season once it is scored; until then, on the days that are verified
+  const period: Period = chosen ?? (s?.rows.some((r) => r.period === "test_monsoon_2025") || !s?.rows.length ? "test_monsoon_2025" : "all_verified");
   const [lead, setLead] = useState(1);
 
   const rows = useMemo(() => (s?.rows ?? []).filter((r) => r.period === period), [s, period]);
@@ -77,6 +79,8 @@ export default function Verification() {
       <LiveState loading={card.isLoading} error={card.error} what="the scorecard">
         {s && (
           <>
+            {/* An empty scorecard (no archive or truth yet) carries only rows and a note */}
+            {s.periods && (
             <div className="mb-6 flex gap-2 rounded-lg border border-line bg-subtle px-4 py-3 text-sm text-muted">
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p>
@@ -85,6 +89,7 @@ export default function Verification() {
                 (n below); 95% intervals from a 5-day block bootstrap. Generated {s.generated_at.slice(0, 16).replace("T", " ")} UTC.
               </p>
             </div>
+            )}
 
             {methods.length === 0 ? (
               <Card>

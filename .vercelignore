@@ -1,0 +1,20 @@
+# Upload only what the Vite build and the Python function in api/ need.
+.git
+.github
+node_modules
+dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+backend/tests
+backend/*.db*
+docs
+tests
+work
+graphify-out
+# ml/: only the published JSON exports are served
+ml/*
+!ml/exports
+.env
+.env.*
+!.env.example
