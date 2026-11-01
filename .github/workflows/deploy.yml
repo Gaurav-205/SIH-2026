@@ -20,6 +20,8 @@ jobs:
   deploy:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # The first run waits for Open-Meteo's hourly window (4,500 calls) between backfill, ERA5 and the cycle
+    timeout-minutes: 180
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
