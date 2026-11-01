@@ -212,28 +212,35 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def create_token(user_id: int) -> str:
+def password_fingerprint(password_hash: str) -> str:
+    """Token claim that stops matching when the password changes, which signs out old sessions."""
+    return hmac.new(_secret(), password_hash.encode(), hashlib.sha256).hexdigest()[:16]
+
+
+def create_token(user_id: int, password_hash: str) -> str:
     header = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     now = int(time.time())
-    payload = _b64(json.dumps({"sub": str(user_id), "iat": now, "exp": now + TOKEN_TTL_SECONDS}, separators=(",", ":")).encode())
+    claims = {"sub": str(user_id), "iat": now, "exp": now + TOKEN_TTL_SECONDS, "pwd": password_fingerprint(password_hash)}
+    payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
     signing_input = f"{header}.{payload}".encode()
     signature = _b64(hmac.new(_secret(), signing_input, hashlib.sha256).digest())
     return f"{header}.{payload}.{signature}"
 
 
-def decode_token(token: str) -> int | None:
-    """Returns the user id for a valid, unexpired token, else None."""
+def decode_token(token: str) -> tuple[int, str] | None:
+    """Returns (user id, password fingerprint) for a valid, unexpired token, else None."""
     try:
         header, payload, signature = token.split(".")
         expected = _b64(hmac.new(_secret(), f"{header}.{payload}".encode(), hashlib.sha256).digest())
-        if not hmac.compare_digest(signature, expected):
+        # Bytes: compare_digest raises TypeError on non-ASCII text, and the header is caller input
+        if not hmac.compare_digest(signature.encode(), expected.encode()):
             return None
         if json.loads(_unb64(header)).get("alg") != "HS256":
             return None
         claims = json.loads(_unb64(payload))
         if int(claims["exp"]) < time.time():
             return None
-        return int(claims["sub"])
+        return int(claims["sub"]), str(claims["pwd"])
     except (ValueError, KeyError, json.JSONDecodeError):
         return None
 

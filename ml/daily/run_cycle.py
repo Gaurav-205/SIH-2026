@@ -67,7 +67,9 @@ def build_cycle() -> dict:
         log.info("reusing stored live forecasts for the %s run", init.isoformat())
     else:
         live = fetch_live(init)
-        live.to_parquet(live_file, index=False)
+        # Keep it for reuse only when complete, so a re-run can recover a source that failed this time
+        if set(live["source"]) == {s.id for s in sources() if s.live}:
+            live.to_parquet(live_file, index=False)
     truth = load_truth()
     archive = load_archive()
     d1 = first_valid_date(init)
