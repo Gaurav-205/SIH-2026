@@ -1,4 +1,4 @@
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-pydantic>=2.0.0
-psycopg[binary]>=3.2  # PostgreSQL accounts store when BHAROSA_DATABASE_URL is set
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.2
+psycopg[binary]==3.3.6  # PostgreSQL accounts store when BHAROSA_DATABASE_URL is set

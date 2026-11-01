@@ -40,6 +40,7 @@ export async function apiRequest<T>(
   { body, token, timeoutMs = 8000 }: { body?: unknown; token?: string | null; timeoutMs?: number } = {}
 ): Promise<T> {
   let res: Response;
+  let text: string;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       method,
@@ -50,11 +51,11 @@ export async function apiRequest<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
+    text = await res.text(); // inside the try: the timeout also covers a slow download
   } catch {
     throw new ApiError(0, OFFLINE_MESSAGE);
   }
   if (res.status === 204) return undefined as T;
-  const text = await res.text();
   let data: unknown = null;
   try {
     data = text ? JSON.parse(text) : null;

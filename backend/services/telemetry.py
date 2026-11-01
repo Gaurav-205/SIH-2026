@@ -27,6 +27,7 @@ COASTAL = {
     "kannur",
     "kasaragod",
     "kollam",
+    "malappuram",
     "thiruvananthapuram",
     "ernakulam",
     "thrissur",

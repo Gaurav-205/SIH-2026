@@ -18,6 +18,11 @@
 - **Skill-weighted live blend in production:** the deploy job fetches IMD real-time truth, ERA5 wind
   and the recent forecast archive (`ml.ingest.openmeteo --since today-100`). First production
   scorecard (24 Jul–31 Oct 2026, day 1 rain): Bharosa RMSE 10.85 mm vs 11.35 mm equal-weight mean.
+- **Audit fixes:** changing a password ends older sessions (`POST /users/me/password` now returns a new
+  token); login limits are per address and email, with 50 failures per email across addresses, so one
+  network cannot lock someone out; login email length is limited; a non-ASCII token gets 401, not 500;
+  a slow download reports the normal offline message; Malappuram gets marine context. The deploy job
+  keeps about 30 published cycles and installs the ML lockfile; backend dependencies are pinned.
 - Sign-ups limited to 10 per hour per client IP. `POSTGRES_URL` from Vercel integrations accepted.
 - Row level security is enabled on every account table on PostgreSQL, so Supabase's public API cannot
   read them through its anon key; the backend owns the tables and is unaffected.

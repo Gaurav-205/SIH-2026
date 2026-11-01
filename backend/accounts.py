@@ -50,7 +50,7 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: str = Field(max_length=254)  # failed logins store it, so it must stay small
     password: str = Field(min_length=1, max_length=128)
 
     @field_validator("email")
@@ -97,6 +97,10 @@ class PasswordConfirm(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class TokenOut(BaseModel):
+    token: str
+
+
 class AlertAck(BaseModel):
     alert_id: str
     acked_at: str
@@ -128,12 +132,13 @@ def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Ro
     )
     if not authorization or not authorization.lower().startswith("bearer "):
         raise unauthorized
-    user_id = auth.decode_token(authorization.split(" ", 1)[1].strip())
-    if user_id is None:
+    decoded = auth.decode_token(authorization.split(" ", 1)[1].strip())
+    if decoded is None:
         raise unauthorized
+    user_id, fingerprint = decoded
     with auth.db() as conn:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    if row is None:
+    if row is None or fingerprint != auth.password_fingerprint(row["password_hash"]):
         raise unauthorized
     return row
 
@@ -141,13 +146,19 @@ def current_user(authorization: str | None = Header(default=None)) -> sqlite3.Ro
 # ── Auth ────────────────────────────────────────────────────
 
 SIGNUPS_PER_HOUR = 10
+# Per address and email, so one network cannot lock someone else out; the larger per-email limit
+# still stops guessing from many addresses.
+LOGIN_FAILURES_PER_EMAIL = 50
+
+
+def _client_ip(request: Request) -> str:
+    # Vercel sets x-forwarded-for itself (client values are overwritten), so its first entry is the caller
+    return (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or (request.client.host if request.client else "unknown")
 
 
 @router.post("/auth/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def signup(body: SignupRequest, request: Request):
-    # Vercel sets x-forwarded-for itself (client values are overwritten), so its first entry is the caller
-    ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or (request.client.host if request.client else "unknown")
-    key = f"signup:{ip}"
+    key = f"signup:{_client_ip(request)}"
     if auth.too_many_failures(key, limit=SIGNUPS_PER_HOUR, window=3600):
         raise HTTPException(status_code=429, detail="Too many sign-ups from this network. Try again later.")
     auth.record_failure(key)
@@ -159,19 +170,22 @@ def signup(body: SignupRequest, request: Request):
             ).fetchone()
     except auth.IntegrityError:
         raise HTTPException(status_code=409, detail="An account with this email already exists") from None
-    return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
+    return AuthResponse(token=auth.create_token(row["id"], row["password_hash"]), user=_user_out(row))
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-def login(body: LoginRequest):
-    if auth.too_many_failures(body.email):
+def login(body: LoginRequest, request: Request):
+    pair = f"{_client_ip(request)}|{body.email}"
+    if auth.too_many_failures(pair) or auth.too_many_failures(body.email, limit=LOGIN_FAILURES_PER_EMAIL):
         raise HTTPException(status_code=429, detail="Too many attempts. Try again in a few minutes.")
     row = auth.check_login(body.email, body.password)
     if row is None:
+        auth.record_failure(pair)
         auth.record_failure(body.email)
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    auth.clear_failures(pair)
     auth.clear_failures(body.email)
-    return AuthResponse(token=auth.create_token(row["id"]), user=_user_out(row))
+    return AuthResponse(token=auth.create_token(row["id"], row["password_hash"]), user=_user_out(row))
 
 
 @router.get("/auth/me", response_model=UserOut)
@@ -199,13 +213,15 @@ def update_me(body: PreferencesUpdate, user: sqlite3.Row = Depends(current_user)
     return _user_out(row)
 
 
-@router.post("/users/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/users/me/password", response_model=TokenOut)
 def change_password(body: PasswordChange, user: sqlite3.Row = Depends(current_user)):
     if not auth.verify_password(body.current_password, user["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
+    new_hash = auth.hash_password(body.new_password)
     with auth.db() as conn:
-        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (auth.hash_password(body.new_password), user["id"]))
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+    # Every older token just stopped working; this one keeps the current session signed in
+    return TokenOut(token=auth.create_token(user["id"], new_hash))
 
 
 @router.post("/users/me/delete", status_code=status.HTTP_204_NO_CONTENT)
