@@ -29,6 +29,15 @@ def test_database_outage_is_a_clear_503(client, monkeypatch):
     assert "temporarily unavailable" in r.json()["detail"]
 
 
+@pytest.mark.skipif(not auth.USE_POSTGRES, reason="row level security exists only on PostgreSQL")
+def test_postgres_tables_have_row_level_security(client):
+    with auth.db() as conn:
+        rows = conn.execute(
+            "SELECT relname FROM pg_class WHERE relname IN ('users', 'alert_acks', 'login_failures', 'meta') AND relrowsecurity"
+        ).fetchall()
+    assert {r["relname"] for r in rows} == {"users", "alert_acks", "login_failures", "meta"}
+
+
 def _email() -> str:
     return f"user-{uuid.uuid4().hex[:8]}@example.com"
 

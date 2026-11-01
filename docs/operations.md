@@ -95,6 +95,7 @@ Python function (`api/index.py`, dependencies in the root `requirements.txt`). `
 | :--- | :--- | :--- |
 | `BHAROSA_SECRET` | Vercel env (Production, Preview), sensitive | Token signing key |
 | `BHAROSA_DATABASE_URL` | Vercel env (Production, Preview), sensitive | Supabase transaction pooler URL (port 6543). Without it, account endpoints return 503 because the function filesystem is read-only; forecasts still work |
+| `POSTGRES_URL` | Set by the Vercel Supabase integration | Used when `BHAROSA_DATABASE_URL` is unset. The schema enables row level security with no policies, so Supabase's public API cannot read account tables |
 | `BHAROSA_ADMIN_USER_IDS` | Vercel env | Optional admin allowlist |
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | GitHub repository secrets | Used by `.github/workflows/deploy.yml` |
 
