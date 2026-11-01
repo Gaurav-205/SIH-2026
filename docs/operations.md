@@ -102,8 +102,9 @@ Python function (`api/index.py`, dependencies in the root `requirements.txt`). `
 `python -m ml.daily.run_cycle --no-truth` (public Open-Meteo, no key) and
 `python -m ml.evaluate.report` every day at 11:00 IST, after CI passes on `main`, or by hand, then
 deploys with the new exports. If the cycle fails, nothing is deployed and the previous publication
-keeps serving; the health endpoint marks it stale after 24 hours. The project is deliberately not
-connected to Git: a Git-triggered build would have no exports.
+keeps serving; the health endpoint marks it stale after 24 hours. `vercel.json` disables Git-triggered
+deployments of `main`, because a Git build has no exports and would replace live data with 503s.
+Pull-request previews still build (with empty-data states) for UI review.
 
 **Limitation.** The scheduled job has no archive or IMD truth, so the live blend uses equal weights
 and the scorecard stays empty. Skill weighting needs the archive backfill and IMD mirror
