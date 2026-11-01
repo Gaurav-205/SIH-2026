@@ -3,6 +3,7 @@ Account flow tests: sign up -> log in -> profile -> preferences -> password -> d
 Run from backend/:  python -m pytest -q
 """
 
+import sqlite3
 import uuid
 
 import pytest
@@ -16,6 +17,16 @@ from main import app
 def client():
     with TestClient(app) as c:  # runs the lifespan, which creates the tables
         yield c
+
+
+def test_database_outage_is_a_clear_503(client, monkeypatch):
+    def down():
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(auth, "_connect", down)
+    r = client.post("/api/v1/auth/login", json={"email": "a@example.com", "password": "monsoon-2026"})
+    assert r.status_code == 503
+    assert "temporarily unavailable" in r.json()["detail"]
 
 
 def _email() -> str:

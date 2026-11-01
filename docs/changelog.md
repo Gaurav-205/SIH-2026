@@ -19,6 +19,8 @@
   and the recent forecast archive (`ml.ingest.openmeteo --since today-100`). First production
   scorecard (24 Jul–31 Oct 2026, day 1 rain): Bharosa RMSE 10.85 mm vs 11.35 mm equal-weight mean.
 - Sign-ups limited to 10 per hour per client IP. `POSTGRES_URL` from Vercel integrations accepted.
+- An unreachable accounts database now returns a clear 503 instead of a bare 500; login and sign-up
+  offer the demo in that case.
 - District map labels are placed by pixel collision at the current zoom; Verification opens on a
   period that has scores.
 

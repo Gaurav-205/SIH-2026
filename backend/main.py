@@ -15,9 +15,9 @@ import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 import accounts
 import auth
@@ -69,6 +69,18 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+ACCOUNTS_DOWN = "Accounts are temporarily unavailable. Forecasts still work without an account."
+
+
+def _accounts_unavailable(_request: Request, exc: Exception) -> JSONResponse:
+    logging.getLogger("bharosa").exception("accounts database unavailable", exc_info=exc)
+    return JSONResponse(status_code=503, content={"detail": ACCOUNTS_DOWN})
+
+
+for _exc_type in auth.DatabaseUnavailable:
+    app.add_exception_handler(_exc_type, _accounts_unavailable)
 
 
 def _json_file(path: Path, what: str, command: str = "python -m ml.daily.run_cycle") -> Response:

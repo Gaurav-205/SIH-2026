@@ -47,7 +47,7 @@ export default function Signup() {
       navigate("/welcome", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-up failed");
-      setOffline(err instanceof ApiError && err.status === 0);
+      setOffline(err instanceof ApiError && (err.status === 0 || err.status === 503));
     } finally {
       setBusy(false);
     }

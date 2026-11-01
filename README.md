@@ -74,7 +74,7 @@ live until then ([decision 0008](docs/decisions/0008-stage-a-live-until-test.md)
 ## User flow
 
 ```
-Landing (/) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
+Landing (/landing) ─► Sign up ─► Onboarding (/welcome) ─► Dashboard (/app)
    │                      role · home region ·        ├─ Overview      alerts, wettest districts, run status
    ├─► Log in ──────────  alert threshold · lead ────►├─ Districts     map + table, per-district blend and weights
    └─► Explore the demo (no account) ────────────────►├─ Forecast      region view by lead day

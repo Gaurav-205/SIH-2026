@@ -85,8 +85,10 @@ if USE_POSTGRES:
     from psycopg.rows import dict_row
 
     IntegrityError: tuple[type[Exception], ...] = (sqlite3.IntegrityError, psycopg.IntegrityError)
+    DatabaseUnavailable: tuple[type[Exception], ...] = (sqlite3.OperationalError, psycopg.OperationalError)
 else:
     IntegrityError = (sqlite3.IntegrityError,)
+    DatabaseUnavailable = (sqlite3.OperationalError,)
 
 
 # ── Database ────────────────────────────────────────────────
