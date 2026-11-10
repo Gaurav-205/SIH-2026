@@ -42,7 +42,7 @@ that is, everything already verified when the forecast is issued. Three places e
 ## Stage A: skill ledger and inverse-error blend
 
 For each source s, point, lead and variable, the verified errors in the last 90 days before V − L are
-averaged with a decaying weight 0.5^(age/20 days):
+averaged with a decaying weight 0.5^(age/14 days):
 
 - MAE_s = Σ w |f − o| / Σ w
 - bias_s = Σ w (f − o) / Σ w
@@ -51,9 +51,12 @@ averaged with a decaying weight 0.5^(age/20 days):
 A source needs at least 10 verified pairs at the point, otherwise it uses the pool of its region. If
 neither has 10, it is shown but not weighted.
 
-- **Bias correction:** rain is divided by the ratio, clipped to [0.4, 2.5]. Tmax and wind are corrected
+- **Bias correction:** rain is divided by the ratio, clipped to [0.55, 1.85]. Tmax and wind are corrected
   additively (wind is floored at 0).
-- **Weights:** w_s ∝ (MAE_s + 0.1)⁻², normalised to sum to 1.
+- **Weights:** w_s ∝ (MAE_s + 0.1)^−1.5, normalised to sum to 1.
+- **Config change:** these are the live settings since commit 753983d. The published 2024 validation and
+  frozen Stage B used half-life 20 days, power 2 and clip [0.4, 2.5], so those results do not describe
+  today's Stage A exactly. Rerun validation before quoting them for the live blend.
 - **Blend:** μ = Σ w_s f̃_s, where f̃ is the corrected forecast.
 - **Uncertainty:** σ² = Σ w_s (f̃_s − μ)² + Σ w_s (1.2533 · MAE_s)². The first term is the weighted
   spread; the second turns a MAE into a normal-error variance, since √(π/2) = 1.2533.

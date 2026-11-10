@@ -101,3 +101,14 @@ def test_nested_corrupt_publication_is_not_operational(tmp_path):
     doc = {"issue": {}, "sources": [1], "points": [], "forecasts": [None]}
     (tmp_path / "latest.json").write_text(json.dumps(doc))
     assert publication_status(tmp_path)["status"] == "invalid_export"
+
+
+def test_truncated_provider_response_is_unavailable(monkeypatch):
+    import http.client
+
+    def request(*args, **kwargs):
+        raise http.client.IncompleteRead(b"{")
+
+    monkeypatch.setattr(telemetry.urllib.request, "urlopen", request)
+    result = telemetry.fetch_product("https://example.test", {"current": "pm2_5"})
+    assert result["status"] == "unavailable"

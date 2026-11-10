@@ -135,8 +135,42 @@ def test_change_password(client):
     bad = client.post(url, headers=_bearer(token), json={"current_password": "nope", "new_password": "new-secret-99"})
     assert bad.status_code == 400
     ok = client.post(url, headers=_bearer(token), json={"current_password": "monsoon-2026", "new_password": "new-secret-99"})
-    assert ok.status_code == 204
+    assert ok.status_code == 200
     assert client.post("/api/v1/auth/login", json={"email": email, "password": "new-secret-99"}).status_code == 200
+    # Old sessions end; the session that changed the password continues on its new token
+    assert client.get("/api/v1/auth/me", headers=_bearer(token)).status_code == 401
+    assert client.get("/api/v1/auth/me", headers=_bearer(ok.json()["token"])).status_code == 200
+
+
+def test_one_network_cannot_lock_out_another(client):
+    email = _email()
+    _signup(client, email=email)
+    login = "/api/v1/auth/login"
+    for _ in range(5):
+        client.post(login, json={"email": email, "password": "wrong-password"}, headers={"x-forwarded-for": "203.0.113.1"})
+    blocked = client.post(login, json={"email": email, "password": "monsoon-2026"}, headers={"x-forwarded-for": "203.0.113.1"})
+    assert blocked.status_code == 429
+    other = client.post(login, json={"email": email, "password": "monsoon-2026"}, headers={"x-forwarded-for": "203.0.113.2"})
+    assert other.status_code == 200
+
+
+def test_guessing_from_many_networks_is_still_limited(client):
+    email = _email()
+    _signup(client, email=email)
+    login = "/api/v1/auth/login"
+    for i in range(50):
+        client.post(login, json={"email": email, "password": "wrong-password"}, headers={"x-forwarded-for": f"198.51.100.{i}"})
+    next_try = client.post(login, json={"email": email, "password": "monsoon-2026"}, headers={"x-forwarded-for": "198.51.100.200"})
+    assert next_try.status_code == 429
+
+
+def test_oversized_login_email_is_rejected_before_it_is_stored(client):
+    r = client.post("/api/v1/auth/login", json={"email": "x" * 300 + "@example.com", "password": "whatever-123"})
+    assert r.status_code == 422
+
+
+def test_non_ascii_token_is_unauthorized_not_a_crash(client):
+    assert client.get("/api/v1/auth/me", headers={"Authorization": "Bearer a.b.\xe9".encode("latin-1")}).status_code == 401
 
 
 def test_alert_acknowledgements(client):

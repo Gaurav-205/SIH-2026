@@ -35,7 +35,7 @@ if (process.env.BHAROSA_TEST_ACCOUNTS !== '1') throw new Error('Set BHAROSA_TEST
     await page.getByLabel('Current password', { exact: true }).fill(password);
     await page.getByLabel('New password', { exact: true }).fill(updatedPassword);
     await page.getByLabel('Confirm new password', { exact: true }).fill(updatedPassword);
-    const changed = page.waitForResponse(r => r.url().endsWith('/users/me/password') && r.status() === 204);
+    const changed = page.waitForResponse(r => r.url().endsWith('/users/me/password') && r.status() === 200);
     await page.getByRole('button', { name: 'Change password', exact: true }).click();
     await changed;
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();

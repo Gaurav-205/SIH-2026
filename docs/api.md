@@ -45,7 +45,7 @@ Weights are rounded to 4 decimals so they still sum to 1 (within 0.001); other n
 | POST | `/api/v1/auth/login` | | log in → `{ token, user }`; throttled after repeated failures |
 | GET | `/api/v1/auth/me` | ✓ | current user |
 | PATCH | `/api/v1/users/me` | ✓ | name, role, home region, default lead day, alert threshold, theme, onboarded |
-| POST | `/api/v1/users/me/password` | ✓ | change password (current password required) |
+| POST | `/api/v1/users/me/password` | ✓ | change password (current password required); ends older sessions and returns `{token}` |
 | POST | `/api/v1/users/me/delete` | ✓ | delete account (password required) |
 | GET | `/api/v1/alerts/acks` | ✓ | acknowledged alert ids |
 | PUT / DELETE | `/api/v1/alerts/acks/{id}` | ✓ | acknowledge / reopen an alert |

@@ -1,6 +1,7 @@
 """Optional modelled context with independent failures and explicit provenance."""
 
 import datetime as dt
+import http.client
 import json
 import logging
 import math
@@ -27,6 +28,7 @@ COASTAL = {
     "kannur",
     "kasaragod",
     "kollam",
+    "malappuram",
     "thiruvananthapuram",
     "ernakulam",
     "thrissur",
@@ -52,7 +54,8 @@ def fetch_product(host: str, params: dict) -> dict:
             raise ValueError("No available measurements")
         current = {"time": current["time"], **{field: current.get(field) if valid(current.get(field)) else None for field in fields}}
         return {"status": "available", "data": current, "units": payload.get("current_units", {})}
-    except (OSError, ValueError, TypeError, AttributeError):
+    # http.client.HTTPException covers truncated bodies and bad status lines, which are not OSError
+    except (OSError, http.client.HTTPException, ValueError, TypeError, AttributeError):
         log.warning("Environmental provider unavailable: %s", host)
         return {"status": "unavailable", "data": None, "units": {}}
 
